@@ -1,0 +1,18 @@
+[
+  {
+    "id": "matrix-1999",
+    "title": "The Matrix (1999)",
+    "poster": "posters/matrix.jpg",
+    "embed": "https://onedrive.live.com/embed?resid=YOUR_RES_ID&authkey=YOUR_KEY&em=2",
+    "tags": ["sci-fi", "action"],
+    "addedAt": "2025-08-18T12:00:00Z"
+  },
+  {
+    "id": "dune-2021",
+    "title": "Dune (2021)",
+    "poster": "posters/dune.jpg",
+    "embed": "https://onedrive.live.com/embed?resid=YOUR_RES_ID_2&authkey=YOUR_KEY_2&em=2",
+    "tags": ["epic", "sci-fi"],
+    "addedAt": "2025-08-18T12:05:00Z"
+  }
+]
