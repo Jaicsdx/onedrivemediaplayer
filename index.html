@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OneDrive Cloud Player — Portable + Fullscreen</title>
+<title>OneDrive Cloud Player — Fullscreen + Auto-Updating URL</title>
 
 <!-- LZ-String to compress playlist into the URL -->
 <script defer src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
@@ -46,13 +46,44 @@
   .ph-title{font-weight:800}
   .ph-status{font-size:12px;color:var(--muted)}
 
-  .player-wrap{position:relative;border-radius:14px;overflow:hidden;background:#04070f}
-  .player-hint{position:absolute;left:10px;top:10px;font-size:12px;color:#fff;background:#0b1324;border:1px solid #2b3e65;padding:4px 8px;border-radius:999px}
-  .player-actions{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+  .player-wrap{
+    position:relative;border-radius:14px;overflow:hidden;background:#04070f;
+    height:62vh;               /* default height */
+  }
+  @media (max-width:900px){ .player-wrap{height:48vh} }
+
+  .player-hint{
+    position:absolute;left:10px;top:10px;font-size:12px;color:#fff;
+    background:#0b1324;border:1px solid #2b3e65;padding:4px 8px;border-radius:999px;z-index:2
+  }
+  .player-actions{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
   .smallbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
   .smallbtn.primary{background:#14223d}
-  iframe.embed{width:100%;height:62vh;border:0;background:#000}
-  @media (max-width:900px){iframe.embed{height:48vh}}
+
+  /* The iframe fills the player area by default */
+  iframe.embed{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    border:0; background:#000;
+  }
+
+  /* TRUE FULLSCREEN: when the player goes fullscreen, make it fill the screen */
+  .player-wrap:fullscreen,
+  .player-wrap:-webkit-full-screen {
+    width:100vw; height:100vh; margin:0; border-radius:0;
+  }
+  .player-wrap:fullscreen iframe.embed,
+  .player-wrap:-webkit-full-screen iframe.embed {
+    width:100vw; height:100vh;
+  }
+
+  /* “Viewport height” fix for mobile browsers with dynamic toolbars */
+  @supports (height: 100dvh) {
+    .player-wrap:fullscreen,
+    .player-wrap:-webkit-full-screen { height:100dvh }
+    .player-wrap:fullscreen iframe.embed,
+    .player-wrap:-webkit-full-screen iframe.embed { height:100dvh }
+  }
 
   .list{display:grid;gap:8px}
   .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
@@ -81,10 +112,10 @@
       <div class="title">OneDrive Cloud Player (Embed-only)</div>
     </div>
 
-    <!-- Paste a OneDrive EMBED URL, an EMBED iframe HTML, or a long link that contains resid (& authkey). -->
+    <!-- Paste an EMBED URL (best), EMBED iframe HTML, or long link with resid (& authkey) -->
     <form id="addForm" class="add-form" autocomplete="off">
       <input id="titleInput" class="in" placeholder="Title (optional)"/>
-      <input id="urlInput"   class="in" placeholder="Paste OneDrive embed URL or iframe HTML (best)"/>
+      <input id="urlInput"   class="in" placeholder="Paste OneDrive embed URL or iframe HTML"/>
       <button class="btn btn-add" type="submit">Add</button>
       <button class="btn btn-clear" type="button" id="clearAll">Clear</button>
     </form>
@@ -142,7 +173,7 @@
 </main>
 
 <footer class="wrap" style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0 22px">
-  The address bar always carries your playlist. Open this same URL on any device to get the latest list.
+  The address bar always carries your latest playlist. Bookmark this page as-is to keep it in sync.
 </footer>
 
 <script>
@@ -178,7 +209,7 @@ function toEmbedOnly(raw){
     return {embed:url, ok:false};
   }catch{ return {embed:raw, ok:false}; }
 }
-function makeItem({title,raw,id}){
+function makeItem({title, raw, id}){
   const {embed, ok} = toEmbedOnly(raw);
   return { id: id || crypto.randomUUID(), title: title?.trim() || shortCodeFrom(raw), code: shortCodeFrom(raw), original: raw, embed, ok };
 }
@@ -187,12 +218,34 @@ function makeItem({title,raw,id}){
 const iframeEl = $('#iframe');
 const statusEl  = $('#status');
 const playerArea = $('#playerArea');
+
 function playItem(it){
   iframeEl.src = it.embed;
   statusEl.textContent = it.ok ? 'Playing in OneDrive web player' : 'Opened (share page). Prefer Embed to avoid downloads';
-  // keep URL current so other devices load this playlist
-  history.replaceState(null,'',buildShareUrl(it.id));
+  replaceUrlWithCurrentPlaylist(it.id);
 }
+
+/* TRUE fullscreen (container) */
+function enterFullscreen(){
+  const el = playerArea;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if(req) req.call(el);
+}
+function exitFullscreen(){
+  const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  if(exit) exit.call(document);
+}
+function isFullscreen(){
+  return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+}
+document.addEventListener('fullscreenchange', ()=>{
+  // Ensure the iframe fills when toggling
+  if(isFullscreen()){
+    playerArea.style.borderRadius = '0';
+  } else {
+    playerArea.style.borderRadius = '';
+  }
+});
 
 /* ----------------- Render list ----------------- */
 function renderList(filter=''){
@@ -207,7 +260,7 @@ function renderList(filter=''){
   filtered.forEach((it, idx)=>{
     const row = document.createElement('div');
     row.className = 'item';
-    const permalink = buildShareUrl(it.id);
+    const permalink = buildShareUrl(it.id, /*cacheBust=*/true);
     row.innerHTML = `
       <div class="badge">${idx+1}</div>
       <div class="itxt">
@@ -233,35 +286,46 @@ function renderList(filter=''){
       if(!cur) return;
       if(act==='play') playItem(cur);
       if(act==='copy'){ navigator.clipboard?.writeText(cur.original); statusEl.textContent='Original link copied'; }
-      if(act==='del'){ store.set(now.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); updateUrlFromStore(); }
+      if(act==='del'){ store.set(now.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); replaceUrlWithCurrentPlaylist(); }
     });
     listEl.appendChild(row);
   });
 }
 
-/* ----------------- Share / Export / Import ----------------- */
-function buildShareUrl(selectedId=null){
+/* ----------------- Share / Export / Import + URL sync ----------------- */
+function buildShareUrl(selectedId=null, cacheBust=false){
   const base = window.location.origin + window.location.pathname;
   const payload = pack(store.get());
   const packed = LZString.compressToEncodedURIComponent(payload);
   const params = new URLSearchParams(); params.set('pl', packed);
   if(selectedId) params.set('item', selectedId);
+  if(cacheBust) params.set('t', Date.now().toString(36)); // avoid CDN/browser cache
   return `${base}?${params.toString()}`;
 }
-function loadFromUrlParam(){
+function replaceUrlWithCurrentPlaylist(selectedId=null){
+  const url = buildShareUrl(selectedId, /*cacheBust=*/true);
+  history.replaceState(null,'',url);
+}
+function tryLoadFromUrl(){
   const p = new URLSearchParams(location.search);
   const pl = p.get('pl'); const sel = p.get('item');
-  if(!pl) return null;
+  if(!pl) return { loaded:false, selected:null };
   try{
     const json = LZString.decompressFromEncodedURIComponent(pl);
     const list = unpack(json);
     store.set(list);
-    return sel || null;
-  }catch{ return null; }
+    return { loaded:true, selected: sel || null };
+  }catch{ return { loaded:false, selected:null }; }
 }
-function updateUrlFromStore(){
-  history.replaceState(null,'',buildShareUrl());
+/* If there’s no ?pl in the URL but we have a local playlist, write it to the URL so bookmarks stay current */
+function ensureUrlHasPlaylist(){
+  const p = new URLSearchParams(location.search);
+  if(!p.get('pl')){
+    const current = store.get();
+    if(current.length>0){ replaceUrlWithCurrentPlaylist(current[0]?.id); }
+  }
 }
+
 function exportJson(){
   const blob = new Blob([pack(store.get())], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='playlist.json';
@@ -273,7 +337,7 @@ function importJsonFile(file){
     try{
       const list = unpack(reader.result);
       store.set(list); renderList($('#filter').value||''); statusEl.textContent='Playlist imported';
-      updateUrlFromStore();
+      replaceUrlWithCurrentPlaylist(list[0]?.id);
     }catch{ alert('Invalid JSON'); }
   };
   reader.readAsText(file);
@@ -281,17 +345,18 @@ function importJsonFile(file){
 
 /* ----------------- Wire up ----------------- */
 document.addEventListener('DOMContentLoaded', ()=>{
-  const selectedFromUrl = loadFromUrlParam();
+  const {loaded, selected} = tryLoadFromUrl();
   renderList();
 
-  // auto-play selected or first (if any)
   const list = store.get();
-  if(selectedFromUrl){
-    const cur = list.find(x=>x.id===selectedFromUrl);
+  if(selected){
+    const cur = list.find(x=>x.id===selected);
     if(cur) playItem(cur);
   } else if(list[0]){
     playItem(list[0]);
   }
+
+  ensureUrlHasPlaylist(); // write ?pl=... if missing so future opens are up-to-date
 
   $('#addForm').addEventListener('submit', (e)=>{
     e.preventDefault();
@@ -303,7 +368,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     $('#titleInput').value=''; $('#urlInput').value='';
     renderList($('#filter').value||'');
     statusEl.textContent = 'Added';
-    updateUrlFromStore(); // keep URL current so other devices get the latest
+    replaceUrlWithCurrentPlaylist(list[list.length-1]?.id);
   });
 
   $('#clearAll').addEventListener('click', ()=>{
@@ -312,26 +377,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('#filter').addEventListener('input', e=>renderList(e.target.value));
 
   $('#sharePl').addEventListener('click', ()=>{
-    const url = buildShareUrl();
+    const url = buildShareUrl(store.get()[0]?.id, true);
     if(navigator.share){ navigator.share({title:'My Playlist', url}).catch(()=>{}); }
     else{ window.open(url,'_blank'); }
   });
   $('#copyPl').addEventListener('click', ()=>{
-    const url = buildShareUrl(); navigator.clipboard?.writeText(url); statusEl.textContent='Playlist link copied';
+    const url = buildShareUrl(store.get()[0]?.id, true); navigator.clipboard?.writeText(url); statusEl.textContent='Playlist link copied';
   });
   $('#exportJson').addEventListener('click', exportJson);
   $('#importJson').addEventListener('change', (e)=>{
     const f = e.target.files && e.target.files[0]; if(f) importJsonFile(f); e.target.value='';
   });
 
-  // Fullscreen for the player area (works on most TV browsers)
-  $('#btnFullscreen').addEventListener('click', async ()=>{
-    const el = playerArea;
-    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    if(req){ req.call(el); }
-  });
-
-  // Open the current embed alone in a new clean tab (edge-to-edge)
+  // Fullscreen + Player-Only
+  $('#btnFullscreen').addEventListener('click', enterFullscreen);
   $('#btnOpenAlone').addEventListener('click', ()=>{
     const src = iframeEl?.src; if(src) window.open(src, '_blank', 'noopener');
   });
