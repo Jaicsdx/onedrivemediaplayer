@@ -1,72 +1,35 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Cloud Media Library</title>
-  <meta name="description" content="Poster grid with OneDrive embed player. Static, GitHub Pages friendly."/>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8">
+  <title>Life City – Cloud Media Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="container head-bar">
-      <div class="brand">
-        <span class="logo">🎬</span>
-        <h1 class="title">Cloud Media Library</h1>
-      </div>
-      <nav class="top-links">
-        <a href="admin.html">➕ Add (helper)</a>
-        <a href="movies.json" target="_blank" rel="noopener">📄 movies.json</a>
-        <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
-      </nav>
-    </div>
-    <div class="container head-tools">
-      <input id="q" class="search" placeholder="Search title or tag…"/>
-      <select id="sort" class="select">
-        <option value="new">Newest first</option>
-        <option value="az">A → Z</option>
-        <option value="za">Z → A</option>
-      </select>
-    </div>
+  <header>
+    <h1>🎬 Life City Media Player</h1>
   </header>
 
-  <main class="container">
-    <div id="grid" class="grid"></div>
-    <div id="empty" class="empty hidden">No results. Try a different search.</div>
-  </main>
+  <!-- Input Form -->
+  <section id="form-section">
+    <input type="text" id="movieTitle" placeholder="Movie / Media Title">
+    <input type="text" id="posterUrl" placeholder="Poster Image URL (optional)">
+    <input type="text" id="embedUrl" placeholder="OneDrive Embed Link">
+    <button id="addMediaBtn">➕ Add Media</button>
+  </section>
 
-  <!-- Modal player -->
-  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Media player">
-    <div class="modal">
-      <button class="close" id="closeModal" aria-label="Close">✕</button>
-      <div class="modal-head">
-        <div class="meta">
-          <div id="mTitle" class="m-title">—</div>
-          <div id="mTags" class="m-tags"></div>
-        </div>
-        <div class="actions">
-          <button id="btnFullscreen" class="btn small">⤢ Fullscreen</button>
-          <a id="btnOpen" class="btn small" target="_blank" rel="noopener">↗ Open</a>
-          <button id="btnCopy" class="btn small">⎘ Copy link</button>
-        </div>
-      </div>
-      <div id="playerWrap" class="player-wrap">
-        <iframe id="player" class="player"
-                allow="autoplay; fullscreen; encrypted-media"
-                allowfullscreen
-                referrerpolicy="no-referrer"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-                title="OneDrive Player"></iframe>
-      </div>
+  <!-- Media List -->
+  <section id="media-list"></section>
+
+  <!-- Player -->
+  <section id="player-section">
+    <h2 id="playerTitle">Select media to play</h2>
+    <div id="playerWrapper">
+      <iframe id="mediaPlayer" frameborder="0" allowfullscreen></iframe>
     </div>
-  </div>
+  </section>
 
-  <footer class="container site-footer">
-    <small>
-      Tip: use **OneDrive Embed** link (or iframe src) so playback streams in-page and never auto-downloads.
-    </small>
-  </footer>
-
-  <script src="app.js" defer></script>
+  <script src="script.js"></script>
 </body>
 </html>
