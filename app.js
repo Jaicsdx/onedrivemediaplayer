@@ -1,54 +1,57 @@
-const STORAGE_KEY = "lifeCity.mediaLibrary";
-const listEl = document.getElementById("media-list");
-const player = document.getElementById("mediaPlayer");
-const playerTitle = document.getElementById("playerTitle");
+const STORAGE_KEY = "lifeCity.mediaList";
+const grid = document.getElementById("media-grid");
+const addBtn = document.getElementById("addBtn");
 
-function loadLibrary() {
+function loadMedia() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
   catch { return []; }
 }
-function saveLibrary(lib) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lib));
+function saveMedia(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-function renderLibrary() {
-  const lib = loadLibrary();
-  listEl.innerHTML = "";
-  lib.forEach((item, i) => {
+function render() {
+  const list = loadMedia();
+  grid.innerHTML = "";
+  list.forEach((m, i) => {
     const card = document.createElement("div");
-    card.className = "media-card";
+    card.className = "card";
     card.innerHTML = `
-      <img src="${item.poster || 'https://via.placeholder.com/150x200?text=No+Poster'}" alt="${item.title}">
-      <p>${item.title}</p>
+      <img src="${m.poster}" alt="${m.title}">
+      <h3>${m.title}</h3>
+      <button onclick="playMedia('${m.embed}')">▶ Play</button>
     `;
-    card.addEventListener("click", () => {
-      playMedia(item);
-    });
-    listEl.appendChild(card);
+    grid.appendChild(card);
   });
 }
 
-function playMedia(item) {
-  player.src = item.embed;
-  playerTitle.textContent = "▶ " + item.title;
-}
+addBtn.addEventListener("click", () => {
+  const poster = document.getElementById("poster").value.trim();
+  const title = document.getElementById("title").value.trim();
+  const embed = document.getElementById("embed").value.trim();
 
-document.getElementById("addMediaBtn").addEventListener("click", () => {
-  const title = document.getElementById("movieTitle").value.trim();
-  const poster = document.getElementById("posterUrl").value.trim();
-  const embed = document.getElementById("embedUrl").value.trim();
-  if (!title || !embed) return alert("Title and Embed Link required!");
+  if (!poster || !title || !embed) return alert("Please fill all fields");
 
-  const lib = loadLibrary();
-  lib.push({ title, poster, embed });
-  saveLibrary(lib);
-  renderLibrary();
+  const list = loadMedia();
+  list.push({ poster, title, embed });
+  saveMedia(list);
+  render();
 
-  // Clear fields
-  document.getElementById("movieTitle").value = "";
-  document.getElementById("posterUrl").value = "";
-  document.getElementById("embedUrl").value = "";
+  document.getElementById("poster").value = "";
+  document.getElementById("title").value = "";
+  document.getElementById("embed").value = "";
 });
 
-// Init
-renderLibrary();
+function playMedia(embedUrl) {
+  const modal = document.getElementById("playerModal");
+  const frame = document.getElementById("playerFrame");
+  frame.src = embedUrl; // must be a valid OneDrive embed link
+  modal.style.display = "flex";
+}
+
+document.getElementById("closeModal").addEventListener("click", () => {
+  document.getElementById("playerModal").style.display = "none";
+  document.getElementById("playerFrame").src = "";
+});
+
+render();
