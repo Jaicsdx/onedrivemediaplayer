@@ -1,153 +1,57 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OneDrive Cloud Player — Save Embed Links</title>
-
-<!-- LZ-String to compress playlist into the URL -->
-<script defer src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-
-<style>
-  :root{
-    --bg:#0b1220; --panel:#101827; --panel-brd:#1f2937; --text:#e5e7eb; --muted:#9ca3af;
-    --accent:#38bdf8; --mutedBtn:#64748b; --danger:#ef4444; --ok:#22c55e; --shadow:0 10px 30px rgba(0,0,0,.35);
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
-  a{color:inherit}
-  .wrap{max-width:1120px;margin:0 auto;padding:14px}
-
-  header{
-    position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg),rgba(11,18,32,.7));
-    border-bottom:1px solid rgba(255,255,255,.06);backdrop-filter: blur(6px);
-  }
-  .bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0}
-  .brand{display:flex;align-items:center;gap:10px}
-  .logo{font-size:26px}
-  .title{font-weight:900;letter-spacing:.2px}
-
-  .add-form{display:flex;gap:8px;align-items:center;flex:1;min-width:280px;flex-wrap:wrap}
-  .in{flex:1;min-width:160px;background:#0e162c;border:1px solid var(--panel-brd);color:var(--text);
-       padding:10px 12px;border-radius:10px;outline:none}
-  .btn{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
-  .btn-add{background:var(--accent);color:#06121f}
-  .btn-clear{background:var(--mutedBtn);color:#fff}
-  .btn-ghost{background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee}
-
-  .toolrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-
-  .row{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin-top:14px}
-  @media (max-width:900px){.row{grid-template-columns:1fr}}
-
-  .panel{background:var(--panel);border:1px solid var(--panel-brd);border-radius:16px;box-shadow:var(--shadow)}
-  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
-  .panel-body{padding:12px}
-  .ph-title{font-weight:800}
-  .ph-status{font-size:12px;color:var(--muted)}
-
-  .player-wrap{
-    position:relative;border-radius:14px;overflow:hidden;background:#04070f;
-    height:62vh;
-  }
-  @media (max-width:900px){ .player-wrap{height:48vh} }
-
-  .player-hint{
-    position:absolute;left:10px;top:10px;font-size:12px;color:#fff;
-    background:#0b1324;border:1px solid #2b3e65;padding:4px 8px;border-radius:999px;z-index:2
-  }
-  .player-actions{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:2}
-  .smallbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
-  .smallbtn.primary{background:#14223d}
-
-  iframe.embed{
-    position:absolute; inset:0;
-    width:100%; height:100%;
-    border:0; background:#000;
-  }
-
-  /* TRUE FULLSCREEN */
-  .player-wrap:fullscreen,
-  .player-wrap:-webkit-full-screen { width:100vw; height:100vh; margin:0; border-radius:0; }
-  .player-wrap:fullscreen iframe.embed,
-  .player-wrap:-webkit-full-screen iframe.embed { width:100vw; height:100vh; }
-  @supports (height: 100dvh) {
-    .player-wrap:fullscreen,
-    .player-wrap:-webkit-full-screen { height:100dvh }
-    .player-wrap:fullscreen iframe.embed,
-    .player-wrap:-webkit-full-screen iframe.embed { height:100dvh }
-  }
-
-  .list{display:grid;gap:8px}
-  .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
-  .item:hover{border-color:#2b3e65}
-  .badge{width:38px;height:38px;border-radius:12px;background:#0b1324;display:grid;place-items:center;font-weight:800;color:#9cccf3}
-  .itxt{min-width:0}
-  .title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .meta{font-size:12px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .i-actions{display:flex;gap:6px;flex-wrap:wrap}
-  .xbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
-  .xbtn.copy{background:#14223d}
-  .xbtn.danger{background:#2a0f12;border-color:#45161a;color:#fbb2b8}
-  .pill{font-size:11px;border-radius:999px;padding:2px 6px;border:1px solid #2b3e65;background:#0b1324;margin-left:6px}
-  .pill.bad{border-color:#5b1a1e;background:#2a0f12;color:#fbb2b8}
-  .pill.ok{border-color:#1e3b2a;background:#0f2a18;color:#b5f0c8}
-  .empty{color:#9ca3af;text-align:center;padding:18px 6px}
-  .hint{font-size:12px;color:#9ca3af;text-align:center;margin-top:8px}
-  .rownote{display:flex;gap:10px;align-items:center}
-  .rownote label{display:flex;gap:6px;align-items:center;font-size:12px;color:#cbd5e1}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Cloud Media Library</title>
+  <meta name="description" content="Poster grid with OneDrive embed player. Static, GitHub Pages friendly."/>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-
-<header>
-  <div class="wrap bar">
-    <div class="brand">
-      <div class="logo">▶️</div>
-      <div class="title">OneDrive Cloud Player (Embed stored)</div>
+  <header class="site-header">
+    <div class="container head-bar">
+      <div class="brand">
+        <span class="logo">🎬</span>
+        <h1 class="title">Cloud Media Library</h1>
+      </div>
+      <nav class="top-links">
+        <a href="admin.html">➕ Add (helper)</a>
+        <a href="movies.json" target="_blank" rel="noopener">📄 movies.json</a>
+        <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+      </nav>
     </div>
-
-    <!-- Paste an EMBED URL (best), EMBED iframe HTML, or long link with resid (& authkey) -->
-    <form id="addForm" class="add-form" autocomplete="off">
-      <input id="titleInput" class="in" placeholder="Title (optional)"/>
-      <input id="urlInput"   class="in" placeholder="Paste OneDrive embed URL or iframe HTML"/>
-      <label class="rownote">
-        <input type="checkbox" id="storeEmbed" checked/>
-        <span>Store embed link (recommended)</span>
-      </label>
-      <button class="btn btn-add" type="submit">Add</button>
-      <button class="btn btn-clear" type="button" id="clearAll">Clear</button>
-    </form>
-  </div>
-
-  <div class="wrap toolrow" style="padding-bottom:10px;">
-    <button class="btn btn-ghost" id="sharePl">Share playlist link</button>
-    <button class="btn btn-ghost" id="copyPl">Copy playlist link</button>
-    <button class="btn btn-ghost" id="convertAll">Convert all to embed</button>
-    <button class="btn btn-ghost" id="saveOffline">Save Offline HTML</button>
-    <button class="btn btn-ghost" id="exportJson">Export JSON</button>
-    <label class="btn btn-ghost" style="cursor:pointer;">
-      Import JSON
-      <input type="file" id="importJson" accept="application/json" hidden/>
-    </label>
-  </div>
-</header>
-
-<main class="wrap row">
-  <!-- Player -->
-  <section class="panel">
-    <div class="panel-head">
-      <div class="ph-title">Player</div>
-      <div class="ph-status"><span id="status">Ready</span></div>
+    <div class="container head-tools">
+      <input id="q" class="search" placeholder="Search title or tag…"/>
+      <select id="sort" class="select">
+        <option value="new">Newest first</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+      </select>
     </div>
-    <div class="panel-body">
-      <div id="playerArea" class="player-wrap">
-        <div class="player-hint" id="hint">OneDrive web player — embed saved</div>
-        <div class="player-actions">
-          <button id="btnFullscreen" class="smallbtn primary" title="Fullscreen">⤢ Fullscreen</button>
-          <button id="btnOpenAlone" class="smallbtn" title="Open player in a clean tab">↗ Player-Only</button>
+  </header>
+
+  <main class="container">
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">No results. Try a different search.</div>
+  </main>
+
+  <!-- Modal player -->
+  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Media player">
+    <div class="modal">
+      <button class="close" id="closeModal" aria-label="Close">✕</button>
+      <div class="modal-head">
+        <div class="meta">
+          <div id="mTitle" class="m-title">—</div>
+          <div id="mTags" class="m-tags"></div>
         </div>
-        <iframe id="iframe" class="embed"
+        <div class="actions">
+          <button id="btnFullscreen" class="btn small">⤢ Fullscreen</button>
+          <a id="btnOpen" class="btn small" target="_blank" rel="noopener">↗ Open</a>
+          <button id="btnCopy" class="btn small">⎘ Copy link</button>
+        </div>
+      </div>
+      <div id="playerWrap" class="player-wrap">
+        <iframe id="player" class="player"
                 allow="autoplay; fullscreen; encrypted-media"
                 allowfullscreen
                 referrerpolicy="no-referrer"
@@ -155,273 +59,14 @@
                 title="OneDrive Player"></iframe>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Playlist -->
-  <section class="panel">
-    <div class="panel-head">
-      <div class="ph-title">Playlist</div>
-      <div class="toolrow">
-        <input id="filter" class="in" placeholder="Filter…"/>
-      </div>
-    </div>
-    <div class="panel-body">
-      <div id="list" class="list"></div>
-      <div id="empty" class="empty" hidden>No items. Paste an embed URL (or iframe HTML) and press Add.</div>
-      <div class="hint">Items are stored as <b>embed URLs</b> when enabled. Use “Convert all to embed” to migrate older items.</div>
-    </div>
-  </section>
-</main>
+  <footer class="container site-footer">
+    <small>
+      Tip: use **OneDrive Embed** link (or iframe src) so playback streams in-page and never auto-downloads.
+    </small>
+  </footer>
 
-<footer class="wrap" style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0 22px">
-  The address bar carries your latest playlist. “Save Offline HTML” downloads a single file with the list baked in.
-</footer>
-
-<script>
-/* ----------------- Utils & Storage ----------------- */
-const $ = (s,r=document)=>r.querySelector(s);
-const store = {
-  get(){ try{ return JSON.parse(localStorage.getItem('od.playlist')||'[]'); }catch{ return []; } },
-  set(arr){ localStorage.setItem('od.playlist', JSON.stringify(arr)); }
-};
-const pack = list => JSON.stringify(list.map(({id,title,original,embed,ok})=>({id,title,original,embed,ok})));
-const unpack = json => (JSON.parse(json||'[]')||[]).map(x=>({id:x.id||crypto.randomUUID(),title:x.title,original:x.original,embed:x.embed,ok:!!x.ok}));
-
-function shortCodeFrom(url){ let h=0; for(let i=0;i<url.length;i++){ h=(h*31+url.charCodeAt(i))>>>0 } return `LC-${h.toString(36).toUpperCase().slice(0,4)}`; }
-function extractIframeSrc(maybeHtml){
-  const s = (maybeHtml||'').trim(); if(!s.startsWith('<')) return null;
-  const m = s.match(/<iframe[^>]+src=["']([^"']+)["']/i); return m ? m[1] : null;
-}
-function toEmbedOnly(raw){
-  const iframeSrc = extractIframeSrc(raw);
-  const url = iframeSrc || raw;
-  try{
-    const u = new URL(url);
-    if (u.hostname.includes("onedrive.live.com") && u.pathname.includes("/embed")) return {embed:url, ok:true};
-    const resid   = u.searchParams.get('resid');
-    const authkey = u.searchParams.get('authkey') || u.searchParams.get('authKey');
-    if (u.hostname.includes("onedrive.live.com") && resid) {
-      const embed = `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}${authkey?`&authkey=${encodeURIComponent(authkey)}`:''}&em=2`;
-      return {embed, ok:true};
-    }
-    if (u.hostname.endsWith("1drv.ms")) return {embed:url, ok:false};
-    return {embed:url, ok:false};
-  }catch{ return {embed:raw, ok:false}; }
-}
-function makeItem({title, raw, id, forceEmbed=false}){
-  const {embed, ok} = toEmbedOnly(raw);
-  // If we want to store the embed as the canonical link, set original=embed
-  const canonical = forceEmbed ? embed : raw;
-  return { id: id || crypto.randomUUID(), title: title?.trim() || shortCodeFrom(raw), code: shortCodeFrom(raw), original: canonical, embed, ok };
-}
-
-/* ----------------- Player ----------------- */
-const iframeEl = $('#iframe');
-const statusEl  = $('#status');
-const playerArea = $('#playerArea');
-
-function playItem(it){
-  iframeEl.src = it.embed || it.original;
-  statusEl.textContent = it.ok ? 'Playing (embed)' : 'Opened (may be a share page). Prefer Embed.';
-  replaceUrlWithCurrentPlaylist(it.id);
-}
-
-/* Fullscreen */
-function enterFullscreen(){
-  const el = playerArea;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  if(req) req.call(el);
-}
-document.addEventListener('fullscreenchange', ()=>{
-  // Nothing else needed; CSS handles :fullscreen sizing
-});
-
-/* ----------------- Render list ----------------- */
-function renderList(filter=''){
-  const list = store.get();
-  const listEl = $('#list'); const emptyEl = $('#empty');
-  listEl.innerHTML = '';
-  const q = (filter||'').trim().toLowerCase();
-  const filtered = list.filter(it => (it.title||'').toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q));
-  if(filtered.length===0){ emptyEl.hidden=false; return; }
-  emptyEl.hidden=true;
-
-  filtered.forEach((it, idx)=>{
-    const row = document.createElement('div');
-    row.className = 'item';
-    const permalink = buildShareUrl(it.id, /*cacheBust=*/true);
-    row.innerHTML = `
-      <div class="badge">${idx+1}</div>
-      <div class="itxt">
-        <div class="title" title="${it.title}">${it.title}
-          ${it.ok ? '<span class="pill ok">Embed OK</span>' : '<span class="pill bad">Needs embed</span>'}
-        </div>
-        <div class="meta">Code: ${it.code}</div>
-      </div>
-      <div class="i-actions">
-        <button class="xbtn" data-act="play" data-id="${it.id}">Play</button>
-        <a class="xbtn" href="${permalink}" target="_blank" rel="noopener">Link</a>
-        <a class="xbtn" href="${it.original}" target="_blank" rel="noopener" title="Open saved (canonical) link">Open</a>
-        <button class="xbtn copy" data-act="copy" data-id="${it.id}" title="Copy saved (canonical) link">Copy</button>
-        <button class="xbtn danger" data-act="del"  data-id="${it.id}">Del</button>
-      </div>
-    `;
-    row.addEventListener('click', (ev)=>{
-      const btn = ev.target.closest('button[data-act]');
-      if(!btn) return;
-      const act = btn.dataset.act;
-      const now = store.get();
-      const cur = now.find(x=>x.id===it.id);
-      if(!cur) return;
-      if(act==='play') playItem(cur);
-      if(act==='copy'){ navigator.clipboard?.writeText(cur.original); statusEl.textContent='Saved link copied'; }
-      if(act==='del'){ store.set(now.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); replaceUrlWithCurrentPlaylist(); }
-    });
-    listEl.appendChild(row);
-  });
-}
-
-/* ----------------- Share / Export / Import + URL sync ----------------- */
-function buildShareUrl(selectedId=null, cacheBust=false){
-  const base = window.location.origin + window.location.pathname;
-  const payload = pack(store.get());
-  const packed = LZString.compressToEncodedURIComponent(payload);
-  const params = new URLSearchParams(); params.set('pl', packed);
-  if(selectedId) params.set('item', selectedId);
-  if(cacheBust) params.set('t', Date.now().toString(36));
-  return `${base}?${params.toString()}`;
-}
-function replaceUrlWithCurrentPlaylist(selectedId=null){
-  const url = buildShareUrl(selectedId, /*cacheBust=*/true);
-  history.replaceState(null,'',url);
-}
-function tryLoadFromUrl(){
-  const p = new URLSearchParams(location.search);
-  const pl = p.get('pl'); const sel = p.get('item');
-  if(!pl) return { loaded:false, selected:null };
-  try{
-    const json = LZString.decompressFromEncodedURIComponent(pl);
-    const list = unpack(json);
-    store.set(list);
-    return { loaded:true, selected: sel || null };
-  }catch{ return { loaded:false, selected:null }; }
-}
-function ensureUrlHasPlaylist(){
-  const p = new URLSearchParams(location.search);
-  if(!p.get('pl')){
-    const current = store.get();
-    if(current.length>0){ replaceUrlWithCurrentPlaylist(current[0]?.id); }
-  }
-}
-function exportJson(){
-  const blob = new Blob([pack(store.get())], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='playlist.json';
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
-}
-function importJsonFile(file){
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const list = unpack(reader.result);
-      store.set(list); renderList($('#filter').value||''); statusEl.textContent='Playlist imported';
-      replaceUrlWithCurrentPlaylist(list[0]?.id);
-    }catch{ alert('Invalid JSON'); }
-  };
-  reader.readAsText(file);
-}
-
-/* -------- Convert all existing items so their saved link = embed -------- */
-function convertAllToEmbed(){
-  const list = store.get().map(it=>{
-    const {embed, ok} = toEmbedOnly(it.original || it.embed || '');
-    return { ...it, original: embed, embed, ok };
-  });
-  store.set(list);
-  renderList($('#filter').value||'');
-  replaceUrlWithCurrentPlaylist(list[0]?.id);
-  statusEl.textContent = 'All items converted to embed links';
-}
-
-/* -------- Save Offline HTML with playlist baked in -------- */
-function saveOfflineHtml(){
-  const payload = pack(store.get());
-  const packed = LZString.compressToEncodedURIComponent(payload);
-  const template = document.documentElement.outerHTML
-    // bake the playlist into the file via a data attribute on <html>
-    .replace('<html lang="en">', `<html lang="en" data-seeded-pl="${packed}">`)
-    // remove any existing ?pl in the URL after load (cosmetic)
-    ;
-  const blob = new Blob([template], {type:'text/html'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'media.html';
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
-}
-
-/* ----------------- Wire up ----------------- */
-document.addEventListener('DOMContentLoaded', ()=>{
-  // If this HTML was saved with a baked playlist, load it
-  const seeded = document.documentElement.getAttribute('data-seeded-pl');
-  if(seeded && !new URLSearchParams(location.search).get('pl')){
-    try{
-      const json = LZString.decompressFromEncodedURIComponent(seeded);
-      const list = unpack(json);
-      if(list.length){ store.set(list); history.replaceState(null,'', buildShareUrl(list[0].id, true)); }
-    }catch{}
-  }
-
-  const {loaded, selected} = tryLoadFromUrl();
-  renderList();
-
-  const list = store.get();
-  if(selected){
-    const cur = list.find(x=>x.id===selected);
-    if(cur) playItem(cur);
-  } else if(list[0]){
-    playItem(list[0]);
-  }
-
-  ensureUrlHasPlaylist();
-
-  $('#addForm').addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const title = $('#titleInput').value;
-    const raw   = $('#urlInput').value.trim();
-    const force = $('#storeEmbed').checked;
-    if(!raw){ $('#urlInput').focus(); return; }
-    const list = store.get(); list.push(makeItem({title, raw, forceEmbed: force}));
-    store.set(list);
-    $('#titleInput').value=''; $('#urlInput').value='';
-    renderList($('#filter').value||'');
-    statusEl.textContent = force ? 'Added (embed stored)' : 'Added';
-    replaceUrlWithCurrentPlaylist(list[list.length-1]?.id);
-  });
-
-  $('#clearAll').addEventListener('click', ()=>{
-    if(confirm('Clear all items?')){ store.set([]); renderList(''); statusEl.textContent='Cleared'; history.replaceState(null,'',location.pathname); }
-  });
-  $('#filter').addEventListener('input', e=>renderList(e.target.value));
-
-  $('#sharePl').addEventListener('click', ()=>{
-    const url = buildShareUrl(store.get()[0]?.id, true);
-    if(navigator.share){ navigator.share({title:'My Playlist', url}).catch(()=>{}); }
-    else{ window.open(url,'_blank'); }
-  });
-  $('#copyPl').addEventListener('click', ()=>{
-    const url = buildShareUrl(store.get()[0]?.id, true); navigator.clipboard?.writeText(url); statusEl.textContent='Playlist link copied';
-  });
-  $('#exportJson').addEventListener('click', exportJson);
-  $('#importJson').addEventListener('change', (e)=>{
-    const f = e.target.files && e.target.files[0]; if(f) importJsonFile(f); e.target.value='';
-  });
-
-  $('#btnFullscreen').addEventListener('click', ()=> {
-    const req = playerArea.requestFullscreen || playerArea.webkitRequestFullscreen || playerArea.msRequestFullscreen;
-    if(req) req.call(playerArea);
-  });
-  $('#btnOpenAlone').addEventListener('click', ()=>{ const src = iframeEl?.src; if(src) window.open(src, '_blank', 'noopener'); });
-
-  $('#convertAll').addEventListener('click', convertAllToEmbed);
-  $('#saveOffline').addEventListener('click', saveOfflineHtml);
-});
-</script>
+  <script src="app.js" defer></script>
 </body>
 </html>
