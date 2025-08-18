@@ -3,11 +3,14 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Life City  Media Player</title>
+<title>OneDrive Cloud Media Player</title>
 
 <!-- Plyr (nice media controls) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.min.js"></script>
+
+<!-- Lightweight compression so share links stay shorter -->
+<script defer src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 
 <style>
   :root{
@@ -32,9 +35,12 @@
   .add-form{display:flex;gap:8px;align-items:center;flex:1;min-width:280px}
   .in{flex:1;min-width:160px;background:#0e162c;border:1px solid var(--panel-brd);color:var(--text);
        padding:10px 12px;border-radius:10px;outline:none}
-  .btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+  .btn{border:0;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}
   .btn-add{background:var(--accent);color:#06121f}
   .btn-clear{background:var(--mutedBtn);color:#fff}
+
+  .toolrow{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-ghost{background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee}
 
   .row{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin-top:14px}
   @media (max-width: 900px){ .row{grid-template-columns:1fr;} }
@@ -53,21 +59,18 @@
   iframe.embed{width:100%;height:62vh;border:0}
   @media (max-width: 900px){ video,iframe.embed{height:48vh} }
 
-  .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
-  .search{flex:1;min-width:180px}
-
   .list{display:grid;gap:8px}
   .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
   .item:hover{border-color:#2b3e65}
   .badge{width:38px;height:38px;border-radius:12px;background:#0b1324;display:grid;place-items:center;font-weight:800;color:#9cccf3}
   .itxt{min-width:0}
   .title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .meta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{font-size:12px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .i-actions{display:flex;gap:6px}
   .xbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
   .xbtn.copy{background:#14223d}
   .xbtn.danger{background:#2a0f12;border-color:#45161a;color:#fbb2b8}
-  .empty{color:var(--muted);text-align:center;padding:18px 6px}
+  .empty{color:#9ca3af;text-align:center;padding:18px 6px}
   .hint{font-size:12px;color:#9ca3af;text-align:center;margin-top:8px}
 </style>
 </head>
@@ -79,12 +82,23 @@
       <div class="logo">▶️</div>
       <div class="title">OneDrive Cloud Media</div>
     </div>
+
     <form id="addForm" class="add-form" autocomplete="off">
       <input id="titleInput" class="in" placeholder="Title (optional)"/>
       <input id="urlInput"   class="in" placeholder="Paste OneDrive link (file)"/>
       <button class="btn btn-add" type="submit">Add</button>
       <button class="btn btn-clear" type="button" id="clearAll">Clear</button>
     </form>
+  </div>
+
+  <div class="wrap toolrow" style="padding-bottom:10px;">
+    <button class="btn btn-ghost" id="shareLink">Share link</button>
+    <button class="btn btn-ghost" id="copyLink">Copy link</button>
+    <button class="btn btn-ghost" id="exportJson">Export JSON</button>
+    <label class="btn btn-ghost" style="cursor:pointer;">
+      Import JSON
+      <input type="file" id="importJson" accept="application/json" hidden/>
+    </label>
   </div>
 </header>
 
@@ -108,42 +122,44 @@
   <section class="panel">
     <div class="panel-head">
       <div class="ph-title">Playlist</div>
-      <div class="tools">
-        <input id="filter" class="in search" placeholder="Filter…"/>
+      <div class="toolrow">
+        <input id="filter" class="in" placeholder="Filter…"/>
       </div>
     </div>
     <div class="panel-body">
       <div id="list" class="list"></div>
       <div id="empty" class="empty" hidden>No items. Paste a OneDrive link above and press Add.</div>
-      <div class="hint">Links are shown as short codes so the layout never stretches. Use the copy button if you need the original URL.</div>
+      <div class="hint">Playlist is saved locally. Use Share/Export to take it to other devices or your TV.</div>
     </div>
   </section>
 </main>
 
 <footer class="wrap" style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0 22px">
-  Tip: Long OneDrive links with <code>resid</code> &amp; <code>authkey</code> stream best. If direct play is blocked, the app auto-falls back to OneDrive’s web player. Jackappan Tech
+  Tip: Long OneDrive links with <code>resid</code> &amp; <code>authkey</code> stream best. If direct play is blocked, the app auto-falls back to OneDrive’s web player.
 </footer>
 
 <script>
-/* ====================== Utilities ====================== */
+/* ====================== Utilities & Storage ====================== */
 const $ = (s,r=document)=>r.querySelector(s);
 const store = {
   get(){ try{ return JSON.parse(localStorage.getItem('od.playlist')||'[]'); }catch{ return []; } },
   set(arr){ localStorage.setItem('od.playlist', JSON.stringify(arr)); }
 };
-
-/* Short code generator (stable, compact, URL-safe) */
-function shortCodeFrom(url){
-  // Make a short, readable code: LC-XXXX (base36 hash)
-  let h = 0;
-  for (let i=0; i<url.length; i++) { h = (h*31 + url.charCodeAt(i)) >>> 0; }
-  const code = h.toString(36).toUpperCase().slice(0,4);
-  return `LC-${code}`;
+/* Only keep minimal fields for portability */
+function serialize(list){ return list.map(({title,original})=>({title,original})); }
+function deserialize(arr){
+  return (arr||[]).map(x=>makeItem({title:x.title, url:x.original}));
 }
 
-/* OneDrive helpers */
+/* Short code generator for tidy UI */
+function shortCodeFrom(url){
+  let h = 0;
+  for (let i=0; i<url.length; i++) { h = (h*31 + url.charCodeAt(i)) >>> 0; }
+  return `LC-${h.toString(36).toUpperCase().slice(0,4)}`;
+}
+
+/* OneDrive link parsing for direct/iframe */
 function parseOneDrive(url){
-  // Prefer direct download if possible, otherwise fall back to the page/embed
   try{
     const u = new URL(url);
     const resid   = u.searchParams.get('resid');
@@ -157,7 +173,6 @@ function parseOneDrive(url){
     if (u.pathname.includes('/download') || u.pathname.includes('download.aspx')){
       return { direct: url, embed: null };
     }
-    // For 1drv.ms or non-download live links, use the share page (iframe)
     if (u.hostname.endsWith('1drv.ms') || u.hostname.endsWith('onedrive.live.com')){
       return { direct: null, embed: url };
     }
@@ -170,7 +185,7 @@ function makeItem({title,url}){
   const parsed = parseOneDrive(url);
   return {
     id: crypto.randomUUID(),
-    title: title && title.trim() ? title.trim() : shortCodeFrom(url), // show short code by default
+    title: (title && title.trim()) ? title.trim() : shortCodeFrom(url),
     code: shortCodeFrom(url),
     original: url,
     direct: parsed.direct,
@@ -207,7 +222,6 @@ async function playItem(it){
     useHtml5(it.direct);
     try{ await videoEl.play(); return; }catch(e){ /* fallback below */ }
   }
-  // fallback (or only option)
   useIframe(it.embed || it.original);
 }
 
@@ -243,7 +257,6 @@ function renderList(filter=''){
       const listNow = store.get();
       const current = listNow.find(x=>x.id===it.id);
       if(!current) return;
-
       if(btn){
         const act = btn.dataset.act;
         if(act==='play'){ await playItem(current); }
@@ -251,16 +264,65 @@ function renderList(filter=''){
         if(act==='del'){ store.set(listNow.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); }
         return;
       }
-      // click anywhere else also plays
       await playItem(current);
     });
     listEl.appendChild(row);
   });
 }
 
+/* ====================== Share / Export / Import ====================== */
+/* Share Link: compress playlist JSON into URL param ?pl= */
+function buildShareUrl(){
+  const base = window.location.origin + window.location.pathname; // keep it clean
+  const payload = JSON.stringify(serialize(store.get()));
+  // compress to base64 with LZString for shorter URLs
+  const packed = LZString.compressToEncodedURIComponent(payload);
+  return `${base}?pl=${packed}`;
+}
+function loadFromUrlParam(){
+  const params = new URLSearchParams(location.search);
+  const pl = params.get('pl');
+  if(!pl) return false;
+  try{
+    const json = LZString.decompressFromEncodedURIComponent(pl);
+    const data = JSON.parse(json);
+    store.set(deserialize(data));
+    return true;
+  }catch(e){ console.warn('Failed to parse shared playlist', e); return false; }
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify(serialize(store.get()), null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'playlist.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+function importJsonFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      store.set(deserialize(data));
+      renderList($('#filter').value||'');
+      statusEl.textContent = 'Playlist imported';
+    }catch(e){ alert('Invalid JSON'); }
+  };
+  reader.readAsText(file);
+}
+
 /* ====================== Wire up ====================== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Seed example if empty (safe to remove)
+  // If URL contains a shared playlist, load it and wipe the param so the URL stays clean
+  const loaded = loadFromUrlParam();
+  if(loaded){
+    // replaceState to remove ?pl=... after load (keeps the page clean)
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  // Seed demo if empty
   if(store.get().length===0){
     store.set([
       makeItem({ title:"(demo) Sample clip", url:"https://1drv.ms/v/s!A..." }) // replace with your link
@@ -284,8 +346,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('#clearAll').addEventListener('click', ()=>{
     if(confirm('Clear all items?')){ store.set([]); renderList(''); statusEl.textContent='Cleared'; }
   });
-
   $('#filter').addEventListener('input', e=>renderList(e.target.value));
+
+  // Share / Export / Import buttons
+  $('#shareLink').addEventListener('click', ()=>{
+    const url = buildShareUrl();
+    // If the device supports native share (nice for TV sticks / phones)
+    if(navigator.share){
+      navigator.share({ title:'My Media Playlist', url }).catch(()=>{});
+    }else{
+      // fallback: open in a new tab so you can bookmark it
+      window.open(url, '_blank');
+    }
+  });
+  $('#copyLink').addEventListener('click', ()=>{
+    const url = buildShareUrl();
+    navigator.clipboard?.writeText(url);
+    statusEl.textContent = 'Share link copied';
+  });
+  $('#exportJson').addEventListener('click', exportJson);
+  $('#importJson').addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(f) importJsonFile(f);
+    e.target.value = '';
+  });
 
   // Auto-play first on load
   const first = store.get()[0]; if(first) playItem(first);
