@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>OneDrive Cloud Media Player</title>
 
-<!-- Plyr (nice HTML5 media controls) -->
+<!-- Plyr (nice media controls) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/plyr@3/dist/plyr.min.js"></script>
 
 <style>
   :root{
     --bg:#0b1220; --panel:#101827; --panel-brd:#1f2937; --text:#e5e7eb; --muted:#9ca3af;
-    --accent:#38bdf8; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; --shadow:0 10px 30px rgba(0,0,0,.35);
+    --accent:#38bdf8; --mutedBtn:#64748b; --shadow:0 10px 30px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
   a{color:inherit}
-  .wrap{max-width:1100px;margin:0 auto;padding:14px}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:14px}
 
   header{
     position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg),rgba(11,18,32,.7));
@@ -27,42 +28,47 @@
   .brand{display:flex;align-items:center;gap:10px}
   .brand .logo{font-size:26px}
   .brand .title{font-weight:900;letter-spacing:.2px}
-  .add-form{display:flex;gap:8px;align-items:center;flex:1;min-width:260px}
+
+  .add-form{display:flex;gap:8px;align-items:center;flex:1;min-width:280px}
   .in{flex:1;min-width:160px;background:#0e162c;border:1px solid var(--panel-brd);color:var(--text);
        padding:10px 12px;border-radius:10px;outline:none}
   .btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
   .btn-add{background:var(--accent);color:#06121f}
-  .btn-clear{background:#64748b;color:#fff}
+  .btn-clear{background:var(--mutedBtn);color:#fff}
+
   .row{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin-top:14px}
-  @media (max-width: 900px){ .row{grid-template-columns:1fr; } }
+  @media (max-width: 900px){ .row{grid-template-columns:1fr;} }
 
   .panel{background:var(--panel);border:1px solid var(--panel-brd);border-radius:16px;box-shadow:var(--shadow)}
   .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
   .panel-body{padding:12px}
+  .ph-title{font-weight:800}
+  .ph-status{font-size:12px;color:var(--muted)}
 
-  /* Player */
   .player-wrap{position:relative;border-radius:14px;overflow:hidden;background:#04070f}
   .player-hint{position:absolute;right:10px;top:10px;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06);
                padding:4px 8px;border-radius:999px}
-  .plyr--video{--plyr-color-main: var(--accent);}
+  .plyr--video{--plyr-color-main: var(--accent)}
+  video{width:100%;height:62vh;background:#000}
   iframe.embed{width:100%;height:62vh;border:0}
-  @media (max-width: 900px){ iframe.embed{height:48vh} }
+  @media (max-width: 900px){ video,iframe.embed{height:48vh} }
 
-  /* Playlist */
-  .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
   .search{flex:1;min-width:180px}
+
   .list{display:grid;gap:8px}
-  .item{display:flex;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
+  .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
   .item:hover{border-color:#2b3e65}
-  .badge{width:34px;height:34px;border-radius:10px;background:#0b1324;display:grid;place-items:center;font-weight:800;color:#9cccf3}
-  .itxt{flex:1;min-width:0}
+  .badge{width:38px;height:38px;border-radius:12px;background:#0b1324;display:grid;place-items:center;font-weight:800;color:#9cccf3}
+  .itxt{min-width:0}
   .title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .meta{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .i-actions{display:flex;gap:6px}
   .xbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
-  .xbtn.warn{background:#1f1605;border-color:#3e2a06;color:#fcd58f}
+  .xbtn.copy{background:#14223d}
   .xbtn.danger{background:#2a0f12;border-color:#45161a;color:#fbb2b8}
   .empty{color:var(--muted);text-align:center;padding:18px 6px}
+  .hint{font-size:12px;color:#9ca3af;text-align:center;margin-top:8px}
 </style>
 </head>
 <body>
@@ -75,7 +81,7 @@
     </div>
     <form id="addForm" class="add-form" autocomplete="off">
       <input id="titleInput" class="in" placeholder="Title (optional)"/>
-      <input id="urlInput"   class="in" placeholder="Paste OneDrive link (1drv.ms or onedrive.live.com)"/>
+      <input id="urlInput"   class="in" placeholder="Paste OneDrive link (file)"/>
       <button class="btn btn-add" type="submit">Add</button>
       <button class="btn btn-clear" type="button" id="clearAll">Clear</button>
     </form>
@@ -83,57 +89,63 @@
 </header>
 
 <main class="wrap row">
-  <!-- Player panel -->
+  <!-- Player -->
   <section class="panel">
     <div class="panel-head">
-      <div style="font-weight:800">Player</div>
-      <div id="status" style="font-size:12px;color:#9ca3af">Ready</div>
+      <div class="ph-title">Player</div>
+      <div class="ph-status"><span id="status">Ready</span></div>
     </div>
     <div class="panel-body">
       <div class="player-wrap">
         <div class="player-hint" id="hint">HTML5 player</div>
-        <!-- HTML5 player -->
         <video id="video" playsinline controls></video>
-        <!-- Fallback embed -->
         <iframe id="iframe" class="embed" hidden allow="autoplay; fullscreen"></iframe>
       </div>
     </div>
   </section>
 
-  <!-- Playlist panel -->
+  <!-- Playlist -->
   <section class="panel">
     <div class="panel-head">
-      <div style="font-weight:800">Playlist</div>
+      <div class="ph-title">Playlist</div>
       <div class="tools">
-        <input id="filter" class="in search" placeholder="Filter playlist…"/>
-        <button class="xbtn warn" id="demoSeed">Load demo</button>
+        <input id="filter" class="in search" placeholder="Filter…"/>
       </div>
     </div>
     <div class="panel-body">
       <div id="list" class="list"></div>
-      <div id="empty" class="empty" hidden>No items. Add a OneDrive link above to start.</div>
+      <div id="empty" class="empty" hidden>No items. Paste a OneDrive link above and press Add.</div>
+      <div class="hint">Links are shown as short codes so the layout never stretches. Use the copy button if you need the original URL.</div>
     </div>
   </section>
 </main>
 
 <footer class="wrap" style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0 22px">
-  Tip: For best results, use OneDrive links that include <code>resid</code> and <code>authkey</code>. The player will auto-fallback to OneDrive’s embed if direct streaming is blocked by CORS.
+  Tip: Long OneDrive links with <code>resid</code> &amp; <code>authkey</code> stream best. If direct play is blocked, the app auto-falls back to OneDrive’s web player.
 </footer>
 
 <script>
 /* ====================== Utilities ====================== */
-const $ = (s, r=document)=>r.querySelector(s);
-const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+const $ = (s,r=document)=>r.querySelector(s);
 const store = {
   get(){ try{ return JSON.parse(localStorage.getItem('od.playlist')||'[]'); }catch{ return []; } },
   set(arr){ localStorage.setItem('od.playlist', JSON.stringify(arr)); }
 };
 
-/* Parse OneDrive link; return {direct, embed} (one or both may be null) */
+/* Short code generator (stable, compact, URL-safe) */
+function shortCodeFrom(url){
+  // Make a short, readable code: LC-XXXX (base36 hash)
+  let h = 0;
+  for (let i=0; i<url.length; i++) { h = (h*31 + url.charCodeAt(i)) >>> 0; }
+  const code = h.toString(36).toUpperCase().slice(0,4);
+  return `LC-${code}`;
+}
+
+/* OneDrive helpers */
 function parseOneDrive(url){
+  // Prefer direct download if possible, otherwise fall back to the page/embed
   try{
     const u = new URL(url);
-    // Long OneDrive links with resid/authkey (best)
     const resid   = u.searchParams.get('resid');
     const authkey = u.searchParams.get('authkey') || u.searchParams.get('authKey');
     if(resid && authkey){
@@ -142,25 +154,24 @@ function parseOneDrive(url){
         embed:  `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}&authkey=${encodeURIComponent(authkey)}&em=2`
       };
     }
-    // If it already looks like a direct download or content link, keep it
     if (u.pathname.includes('/download') || u.pathname.includes('download.aspx')){
       return { direct: url, embed: null };
     }
-    // Short 1drv.ms links or anything else → use iframe (will redirect to player)
+    // For 1drv.ms or non-download live links, use the share page (iframe)
     if (u.hostname.endsWith('1drv.ms') || u.hostname.endsWith('onedrive.live.com')){
       return { direct: null, embed: url };
     }
   }catch(e){}
-  // Unknown → let iframe try
   return { direct: null, embed: url };
 }
 
-/* Create a playlist item object */
+/* Playlist item */
 function makeItem({title,url}){
   const parsed = parseOneDrive(url);
   return {
     id: crypto.randomUUID(),
-    title: title && title.trim() ? title.trim() : url,
+    title: title && title.trim() ? title.trim() : shortCodeFrom(url), // show short code by default
+    code: shortCodeFrom(url),
     original: url,
     direct: parsed.direct,
     embed:  parsed.embed
@@ -175,12 +186,9 @@ const statusEl = $('#status');
 const hintEl = $('#hint');
 
 function useHtml5(src){
-  iframeEl.hidden = true;
-  iframeEl.src = 'about:blank';
-  videoEl.hidden = false;
-  videoEl.src = src;
-  hintEl.textContent = 'HTML5 player';
-  statusEl.textContent = 'Streaming via direct link';
+  iframeEl.hidden = true; iframeEl.src = 'about:blank';
+  videoEl.hidden = false; videoEl.src = src;
+  hintEl.textContent = 'HTML5 player'; statusEl.textContent = 'Streaming via direct link';
   if(!plyr){
     plyr = new Plyr(videoEl, {
       controls: ['play-large','play','progress','current-time','duration','mute','volume','settings','pip','airplay','fullscreen'],
@@ -188,51 +196,31 @@ function useHtml5(src){
     });
   }
 }
-
 function useIframe(src){
-  if(plyr){ try { plyr.pause(); } catch {} }
-  videoEl.hidden = true;
-  videoEl.removeAttribute('src');
-  iframeEl.hidden = false;
-  iframeEl.src = src;
-  hintEl.textContent = 'OneDrive embed';
-  statusEl.textContent = 'Using OneDrive web player';
+  try{ plyr && plyr.pause(); }catch{}
+  videoEl.hidden = true; videoEl.removeAttribute('src');
+  iframeEl.hidden = false; iframeEl.src = src;
+  hintEl.textContent = 'OneDrive web player'; statusEl.textContent = 'Using OneDrive web player';
+}
+async function playItem(it){
+  if(it.direct){
+    useHtml5(it.direct);
+    try{ await videoEl.play(); return; }catch(e){ /* fallback below */ }
+  }
+  // fallback (or only option)
+  useIframe(it.embed || it.original);
 }
 
-/* Try to play an item: prefer direct → if error → fallback to iframe */
-async function playItem(item){
-  // Choose initial mode
-  if(item.direct){
-    useHtml5(item.direct);
-    // Try quick play attempt (some browsers throw on CORS)
-    try{
-      await videoEl.play();
-      return;
-    }catch(e){
-      // fallback to iframe if autoplay blocked or CORS causes error
-      if(item.embed){ useIframe(item.embed); return; }
-    }
-  }
-  // No direct or failed → iframe if possible
-  if(item.embed){ useIframe(item.embed); }
-  else{
-    statusEl.textContent = 'No playable source for this item.';
-  }
-}
-
-/* ====================== Playlist UI ====================== */
+/* ====================== UI: List render ====================== */
 function renderList(filter=''){
   const list = store.get();
   const listEl = $('#list');
   const emptyEl = $('#empty');
   listEl.innerHTML = '';
-  const q = filter.trim().toLowerCase();
 
-  const filtered = list.filter(it => it.title.toLowerCase().includes(q));
-  if(filtered.length === 0){
-    emptyEl.hidden = false;
-    return;
-  }
+  const q = (filter||'').trim().toLowerCase();
+  const filtered = list.filter(it => (it.title||'').toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q));
+  if(filtered.length === 0){ emptyEl.hidden = false; return; }
   emptyEl.hidden = true;
 
   filtered.forEach((it, idx)=>{
@@ -242,26 +230,29 @@ function renderList(filter=''){
       <div class="badge">${idx+1}</div>
       <div class="itxt">
         <div class="title" title="${it.title}">${it.title}</div>
-        <div class="meta" title="${it.original}">${it.original}</div>
+        <div class="meta">Code: ${it.code}</div>
       </div>
       <div class="i-actions">
-        <button class="xbtn" data-act="play"  data-id="${it.id}">Play</button>
-        <button class="xbtn danger" data-act="del"   data-id="${it.id}">Del</button>
+        <button class="xbtn" data-act="play" data-id="${it.id}">Play</button>
+        <button class="xbtn copy" data-act="copy" data-id="${it.id}" title="Copy original URL">Copy</button>
+        <button class="xbtn danger" data-act="del" data-id="${it.id}">Del</button>
       </div>
     `;
-    row.addEventListener('click', (ev)=>{
+    row.addEventListener('click', async (ev)=>{
       const btn = ev.target.closest('button[data-act]');
+      const listNow = store.get();
+      const current = listNow.find(x=>x.id===it.id);
+      if(!current) return;
+
       if(btn){
         const act = btn.dataset.act;
-        if(act==='play'){ playItem(it); }
-        if(act==='del'){
-          const next = store.get().filter(x=>x.id!==it.id);
-          store.set(next); renderList($('#filter').value||'');
-        }
+        if(act==='play'){ await playItem(current); }
+        if(act==='copy'){ navigator.clipboard?.writeText(current.original); statusEl.textContent='Copied original link'; }
+        if(act==='del'){ store.set(listNow.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); }
         return;
       }
-      // clicking item (not buttons) also plays
-      playItem(it);
+      // click anywhere else also plays
+      await playItem(current);
     });
     listEl.appendChild(row);
   });
@@ -269,18 +260,14 @@ function renderList(filter=''){
 
 /* ====================== Wire up ====================== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Seed demo if nothing saved
+  // Seed example if empty (safe to remove)
   if(store.get().length===0){
-    // (These are examples; replace with your own OneDrive links)
-    const demo = [
-      makeItem({title:'Sample video (embed only)', url:'https://1drv.ms/v/s!A...'}), // replace
-      makeItem({title:'Sample video (resid/authkey)', url:'https://onedrive.live.com/?cid=XXXX&resid=XXXX!123&authkey=ABCDE&ithint=video%2Cmp4&em=2'}) // replace
-    ];
-    store.set(demo);
+    store.set([
+      makeItem({ title:"(demo) Sample clip", url:"https://1drv.ms/v/s!A..." }) // replace with your link
+    ]);
   }
   renderList();
 
-  // Add form
   $('#addForm').addEventListener('submit', (e)=>{
     e.preventDefault();
     const title = $('#titleInput').value;
@@ -289,29 +276,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const list = store.get();
     list.push(makeItem({title,url}));
     store.set(list);
-    $('#titleInput').value = ''; $('#urlInput').value = '';
+    $('#titleInput').value=''; $('#urlInput').value='';
     renderList($('#filter').value||'');
     statusEl.textContent = 'Added to playlist';
   });
 
-  // Clear all
   $('#clearAll').addEventListener('click', ()=>{
-    if(confirm('Clear all playlist items?')){ store.set([]); renderList(''); }
+    if(confirm('Clear all items?')){ store.set([]); renderList(''); statusEl.textContent='Cleared'; }
   });
 
-  // Filter
-  $('#filter').addEventListener('input', (e)=>{ renderList(e.target.value); });
+  $('#filter').addEventListener('input', e=>renderList(e.target.value));
 
-  // Demo seed button (optional)
-  $('#demoSeed').addEventListener('click', ()=>{
-    const list = store.get();
-    list.push(makeItem({title:'(Demo) OneDrive embed', url:'https://1drv.ms/v/s!A...'})); // replace
-    store.set(list); renderList($('#filter').value||'');
-  });
-
-  // Auto-play first item on load (if any)
-  const first = store.get()[0];
-  if(first) playItem(first);
+  // Auto-play first on load
+  const first = store.get()[0]; if(first) playItem(first);
 });
 </script>
 </body>
