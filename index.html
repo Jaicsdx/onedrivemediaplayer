@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OneDrive Cloud Media Player (No-Download Embed)</title>
+<title>OneDrive Cloud Player — Embed-Only (No Downloads)</title>
 
 <!-- LZ-String for compact share links -->
 <script defer src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
@@ -11,12 +11,11 @@
 <style>
   :root{
     --bg:#0b1220; --panel:#101827; --panel-brd:#1f2937; --text:#e5e7eb; --muted:#9ca3af;
-    --accent:#38bdf8; --mutedBtn:#64748b; --shadow:0 10px 30px rgba(0,0,0,.35);
+    --accent:#38bdf8; --mutedBtn:#64748b; --danger:#ef4444; --ok:#22c55e; --shadow:0 10px 30px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
   a{color:inherit}
-
   .wrap{max-width:1120px;margin:0 auto;padding:14px}
 
   header{
@@ -25,8 +24,8 @@
   }
   .bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0}
   .brand{display:flex;align-items:center;gap:10px}
-  .brand .logo{font-size:26px}
-  .brand .title{font-weight:900;letter-spacing:.2px}
+  .logo{font-size:26px}
+  .title{font-weight:900;letter-spacing:.2px}
 
   .add-form{display:flex;gap:8px;align-items:center;flex:1;min-width:280px}
   .in{flex:1;min-width:160px;background:#0e162c;border:1px solid var(--panel-brd);color:var(--text);
@@ -37,9 +36,8 @@
   .btn-ghost{background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee}
 
   .toolrow{display:flex;gap:8px;flex-wrap:wrap}
-
   .row{display:grid;grid-template-columns:1.4fr .9fr;gap:14px;margin-top:14px}
-  @media (max-width: 900px){ .row{grid-template-columns:1fr;} }
+  @media (max-width:900px){.row{grid-template-columns:1fr}}
 
   .panel{background:var(--panel);border:1px solid var(--panel-brd);border-radius:16px;box-shadow:var(--shadow)}
   .panel-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -48,10 +46,9 @@
   .ph-status{font-size:12px;color:var(--muted)}
 
   .player-wrap{position:relative;border-radius:14px;overflow:hidden;background:#04070f}
-  .player-hint{position:absolute;right:10px;top:10px;font-size:12px;color:var(--muted);background:rgba(255,255,255,.06);
-               padding:4px 8px;border-radius:999px}
+  .player-hint{position:absolute;right:10px;top:10px;font-size:12px;color:#fff;background:#0b1324;border:1px solid #2b3e65;padding:4px 8px;border-radius:999px}
   iframe.embed{width:100%;height:62vh;border:0;background:#000}
-  @media (max-width: 900px){ iframe.embed{height:48vh} }
+  @media (max-width:900px){iframe.embed{height:48vh}}
 
   .list{display:grid;gap:8px}
   .item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#0d1729;border:1px solid #16223a;padding:10px 12px;border-radius:12px}
@@ -64,6 +61,9 @@
   .xbtn{border:0;background:#0f1a2f;border:1px solid #1b2947;color:#c8d6ee;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:700}
   .xbtn.copy{background:#14223d}
   .xbtn.danger{background:#2a0f12;border-color:#45161a;color:#fbb2b8}
+  .pill{font-size:11px;border-radius:999px;padding:2px 6px;border:1px solid #2b3e65;background:#0b1324;margin-left:6px}
+  .pill.bad{border-color:#5b1a1e;background:#2a0f12;color:#fbb2b8}
+  .pill.ok{border-color:#1e3b2a;background:#0f2a18;color:#b5f0c8}
   .empty{color:#9ca3af;text-align:center;padding:18px 6px}
   .hint{font-size:12px;color:#9ca3af;text-align:center;margin-top:8px}
 </style>
@@ -74,12 +74,16 @@
   <div class="wrap bar">
     <div class="brand">
       <div class="logo">▶️</div>
-      <div class="title">OneDrive Cloud Media</div>
+      <div class="title">OneDrive Cloud Player (Embed-only)</div>
     </div>
 
+    <!-- You can paste:
+         • OneDrive EMBED iframe HTML, or
+         • An OneDrive link that already has resid (& authkey).
+         Short 1drv.ms links will be saved but marked “Needs embed”. -->
     <form id="addForm" class="add-form" autocomplete="off">
       <input id="titleInput" class="in" placeholder="Title (optional)"/>
-      <input id="urlInput"   class="in" placeholder="Paste OneDrive link (file)"/>
+      <input id="urlInput"   class="in" placeholder="Paste OneDrive embed URL OR iframe HTML OR long link with resid…"/>
       <button class="btn btn-add" type="submit">Add</button>
       <button class="btn btn-clear" type="button" id="clearAll">Clear</button>
     </form>
@@ -105,8 +109,12 @@
     </div>
     <div class="panel-body">
       <div class="player-wrap">
-        <div class="player-hint" id="hint">OneDrive web player (no downloads)</div>
-        <iframe id="iframe" class="embed" allow="autoplay; fullscreen" title="OneDrive Player"></iframe>
+        <div class="player-hint" id="hint">OneDrive web player — no downloads</div>
+        <iframe id="iframe" class="embed"
+                allow="autoplay; fullscreen; encrypted-media"
+                referrerpolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+                title="OneDrive Player"></iframe>
       </div>
     </div>
   </section>
@@ -121,101 +129,119 @@
     </div>
     <div class="panel-body">
       <div id="list" class="list"></div>
-      <div id="empty" class="empty" hidden>No items. Paste a OneDrive link above and press Add.</div>
-      <div class="hint">Items show a permalink and an “Open in OneDrive” button. Playing uses OneDrive’s web player only (no auto-download).</div>
+      <div id="empty" class="empty" hidden>No items. Paste an embed URL (or iframe HTML) and press Add.</div>
+      <div class="hint">If an item shows <span class="pill bad">Needs embed</span>, click “Open” then in OneDrive click “… → Embed” and paste the iframe here.</div>
     </div>
   </section>
 </main>
 
 <footer class="wrap" style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0 22px">
-  Tip: Long share links that include <code>resid</code> &amp; <code>authkey</code> embed best. Short <code>1drv.ms</code> links also work.
+  Works best with OneDrive links that include <code>resid</code> (and <code>authkey</code>) or with the official <b>Embed</b> iframe.
 </footer>
 
 <script>
-/* ---------- Utils & Storage ---------- */
+/* ====================== Utils & Storage ====================== */
 const $ = (s,r=document)=>r.querySelector(s);
 const store = {
   get(){ try{ return JSON.parse(localStorage.getItem('od.playlist')||'[]'); }catch{ return []; } },
   set(arr){ localStorage.setItem('od.playlist', JSON.stringify(arr)); }
 };
-function serialize(list){ return list.map(({title,original,id})=>({title,original,id})); }
-function deserialize(arr){ return (arr||[]).map(x=>makeItem({title:x.title, url:x.original, id:x.id})); }
+function serialize(list){ return list.map(({id,title,original,embed,ok})=>({id,title,original,embed,ok})); }
+function deserialize(arr){ return (arr||[]).map(x=>({id:x.id||crypto.randomUUID(), title:x.title, original:x.original, embed:x.embed, ok:!!x.ok})); }
+function shortCodeFrom(url){ let h=0; for(let i=0;i<url.length;i++){ h=(h*31+url.charCodeAt(i))>>>0 } return `LC-${h.toString(36).toUpperCase().slice(0,4)}`; }
 
-/* Short, readable code for UI */
-function shortCodeFrom(url){
-  let h = 0; for (let i=0;i<url.length;i++) { h = (h*31 + url.charCodeAt(i)) >>> 0; }
-  return `LC-${h.toString(36).toUpperCase().slice(0,4)}`;
+/* Extract an iframe src if user pasted iframe HTML */
+function extractIframeSrc(maybeHtml){
+  const s = maybeHtml.trim();
+  if(!s.startsWith("<")) return null;
+  const m = s.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : null;
 }
 
-/* Build an EMBED-ONLY URL (never download) */
-function toEmbedOnly(url){
+/* Build an EMBED-SAFE url from user input (no /download) */
+function toEmbedOnly(raw){
+  // If user pasted iframe HTML, extract src
+  const iframeSrc = extractIframeSrc(raw);
+  const url = iframeSrc || raw;
+
   try{
     const u = new URL(url);
+    // 1) If it already looks like an OneDrive embed, keep it
+    if (u.hostname.includes("onedrive.live.com") && u.pathname.includes("/embed")) {
+      return {embed: url, ok: true};
+    }
+    // 2) Build embed from long share link with resid/authkey
     const resid   = u.searchParams.get('resid');
     const authkey = u.searchParams.get('authkey') || u.searchParams.get('authKey');
-    if(resid && authkey){
-      // OneDrive’s web player
-      return `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}&authkey=${encodeURIComponent(authkey)}&em=2`;
+    if (u.hostname.includes("onedrive.live.com") && resid) {
+      const embed = `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}${authkey?`&authkey=${encodeURIComponent(authkey)}`:''}&em=2`;
+      return {embed, ok: true};
     }
-    // Fallback: just open the share page itself in the iframe
-    return url;
+    // 3) If it's a 1drv.ms short link, we cannot safely convert without resolving → mark as needs-embed
+    if (u.hostname.endsWith("1drv.ms")) {
+      return {embed: url, ok: false}; // will likely redirect to download → user should replace with embed
+    }
+    // 4) Any other host → just keep it but mark not-ok so user knows to fix
+    return {embed: url, ok: false};
   }catch(e){
-    return url;
+    // Not a URL (or invalid) → treat as not-ok
+    return {embed: raw, ok: false};
   }
 }
 
-/* Playlist item */
-function makeItem({title,url,id}){
-  const itemId = id || crypto.randomUUID();
+/* Playlist item (embed-only) */
+function makeItem({title,raw,id}){
+  const {embed, ok} = toEmbedOnly(raw);
   return {
-    id: itemId,
-    title: (title && title.trim()) ? title.trim() : shortCodeFrom(url),
-    code: shortCodeFrom(url),
-    original: url,          // keep the exact link user added
-    embed: toEmbedOnly(url) // safe for iframe (no download)
+    id: id || crypto.randomUUID(),
+    title: (title && title.trim()) ? title.trim() : shortCodeFrom(raw),
+    code: shortCodeFrom(raw),
+    original: raw,  // what user pasted (kept for "Open" / copy)
+    embed,          // what the iframe will load
+    ok              // true if we’re confident it’s an embed (no download)
   };
 }
 
-/* ---------- Player (iframe only, no downloads) ---------- */
+/* ====================== Player (iframe only) ====================== */
 const iframeEl = $('#iframe');
-const statusEl = $('#status');
+const statusEl  = $('#status');
 function playItem(it){
-  iframeEl.src = it.embed || it.original;
-  statusEl.textContent = 'Playing in OneDrive web player';
-  // also update the URL with ?item=<id>&pl=... so you can reopen on TV/other device
-  const url = buildShareUrl(it.id);
-  history.replaceState(null, '', url);
+  iframeEl.src = it.embed;
+  statusEl.textContent = it.ok ? 'Playing in OneDrive web player' : 'Opened (may be a share page). Prefer Embed to avoid downloads';
+  // Update address so the same item opens on other devices
+  history.replaceState(null, '', buildShareUrl(it.id));
 }
 
-/* ---------- UI: render list ---------- */
+/* ====================== UI ====================== */
 function renderList(filter=''){
   const list = store.get();
   const listEl = $('#list');
   const emptyEl = $('#empty');
   listEl.innerHTML = '';
-
   const q = (filter||'').trim().toLowerCase();
+
   const filtered = list.filter(it => (it.title||'').toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q));
-  if(filtered.length === 0){ emptyEl.hidden = false; return; }
-  emptyEl.hidden = true;
+  if(filtered.length===0){ emptyEl.hidden=false; return; }
+  emptyEl.hidden=true;
 
   filtered.forEach((it, idx)=>{
     const row = document.createElement('div');
     row.className = 'item';
     const permalink = buildShareUrl(it.id);
-
     row.innerHTML = `
       <div class="badge">${idx+1}</div>
       <div class="itxt">
-        <div class="title" title="${it.title}">${it.title}</div>
+        <div class="title" title="${it.title}">${it.title}
+          ${it.ok ? '<span class="pill ok">Embed OK</span>' : '<span class="pill bad">Needs embed</span>'}
+        </div>
         <div class="meta">Code: ${it.code}</div>
       </div>
       <div class="i-actions">
         <button class="xbtn" data-act="play" data-id="${it.id}">Play</button>
-        <a class="xbtn" href="${permalink}" target="_blank" rel="noopener" title="Open this item via site permalink">Link</a>
-        <a class="xbtn" href="${it.original}" target="_blank" rel="noopener" title="Open original link on OneDrive">Open</a>
-        <button class="xbtn copy" data-act="copy" data-id="${it.id}" title="Copy original URL">Copy</button>
-        <button class="xbtn danger" data-act="del" data-id="${it.id}">Del</button>
+        <a class="xbtn" href="${permalink}" target="_blank" rel="noopener noreferrer" title="Permalink via this site">Link</a>
+        <a class="xbtn" href="${it.original}" target="_blank" rel="noopener noreferrer" title="Open original on OneDrive">Open</a>
+        <button class="xbtn copy" data-act="copy" data-id="${it.id}">Copy</button>
+        <button class="xbtn danger" data-act="del"  data-id="${it.id}">Del</button>
       </div>
     `;
     row.addEventListener('click', (ev)=>{
@@ -226,18 +252,17 @@ function renderList(filter=''){
       const cur = now.find(x=>x.id===it.id);
       if(!cur) return;
       if(act==='play') playItem(cur);
-      if(act==='copy'){ navigator.clipboard?.writeText(cur.original); statusEl.textContent='Copied original link'; }
+      if(act==='copy'){ navigator.clipboard?.writeText(cur.original); statusEl.textContent='Original link copied'; }
       if(act==='del'){ store.set(now.filter(x=>x.id!==it.id)); renderList($('#filter').value||''); }
     });
     listEl.appendChild(row);
   });
 }
 
-/* ---------- Share / Export / Import ---------- */
+/* ====================== Share / Export / Import ====================== */
 function pack(list){ return JSON.stringify(serialize(list)); }
 function unpack(json){ return deserialize(JSON.parse(json||'[]')); }
 
-/* Build a URL that includes the whole playlist (and optionally a selected item) */
 function buildShareUrl(selectedId=null){
   const base = window.location.origin + window.location.pathname;
   const payload = pack(store.get());
@@ -246,85 +271,69 @@ function buildShareUrl(selectedId=null){
   if(selectedId) params.set('item', selectedId);
   return `${base}?${params.toString()}`;
 }
-
-/* Load playlist (and optional selected item) from ?pl= and ?item= */
 function loadFromUrlParam(){
-  const params = new URLSearchParams(location.search);
-  const pl = params.get('pl');
-  const sel = params.get('item');
+  const p = new URLSearchParams(location.search);
+  const pl = p.get('pl'); const sel = p.get('item');
   if(!pl) return null;
   try{
     const json = LZString.decompressFromEncodedURIComponent(pl);
     const list = unpack(json);
     store.set(list);
     return sel || null;
-  }catch(e){ console.warn('Failed to parse shared playlist', e); return null; }
+  }catch(e){ console.warn('Bad shared playlist', e); return null; }
 }
-
-/* Export / Import JSON */
 function exportJson(){
   const blob = new Blob([pack(store.get())], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'playlist.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(a.href);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='playlist.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
 }
 function importJsonFile(file){
   const reader = new FileReader();
   reader.onload = () => {
     try{
       const list = unpack(reader.result);
-      store.set(list);
-      renderList($('#filter').value||''); statusEl.textContent='Playlist imported';
-      // update address to carry playlist too
-      history.replaceState(null, '', buildShareUrl());
-    }catch(e){ alert('Invalid JSON'); }
+      store.set(list); renderList($('#filter').value||''); statusEl.textContent='Playlist imported';
+      history.replaceState(null,'',buildShareUrl());
+    }catch{ alert('Invalid JSON'); }
   };
   reader.readAsText(file);
 }
 
-/* ---------- Wire up ---------- */
+/* ====================== Wire up ====================== */
 document.addEventListener('DOMContentLoaded', ()=>{
   const selectedFromUrl = loadFromUrlParam();
+
   if(!selectedFromUrl && store.get().length===0){
-    // Optional seed—remove if you don’t want it
-    store.set([ makeItem({ title:"(demo) Sample", url:"https://1drv.ms/v/s!A..." }) ]);
+    // no seed; keep empty so you can add your real embeds
   }
   renderList();
 
-  // If URL specified an item, play it
   if(selectedFromUrl){
     const cur = store.get().find(x=>x.id===selectedFromUrl);
     if(cur) playItem(cur);
-  }else{
-    const first = store.get()[0]; if(first) playItem(first);
   }
 
   $('#addForm').addEventListener('submit', (e)=>{
     e.preventDefault();
     const title = $('#titleInput').value;
-    const url   = $('#urlInput').value.trim();
-    if(!url){ $('#urlInput').focus(); return; }
-    const list = store.get(); 
-    list.push(makeItem({title,url}));
+    const raw   = $('#urlInput').value.trim();
+    if(!raw){ $('#urlInput').focus(); return; }
+    const list = store.get(); list.push(makeItem({title, raw}));
     store.set(list);
     $('#titleInput').value=''; $('#urlInput').value='';
     renderList($('#filter').value||'');
-    statusEl.textContent = 'Added to playlist';
-    // refresh URL share to include new list
-    history.replaceState(null, '', buildShareUrl());
+    statusEl.textContent = 'Added';
+    history.replaceState(null,'',buildShareUrl());
   });
 
   $('#clearAll').addEventListener('click', ()=>{
     if(confirm('Clear all items?')){ store.set([]); renderList(''); statusEl.textContent='Cleared'; history.replaceState(null,'',location.pathname); }
   });
-
   $('#filter').addEventListener('input', e=>renderList(e.target.value));
 
   $('#sharePl').addEventListener('click', ()=>{
     const url = buildShareUrl();
-    if(navigator.share){ navigator.share({ title:'My Media Playlist', url }).catch(()=>{}); }
+    if(navigator.share){ navigator.share({title:'My Playlist', url}).catch(()=>{}); }
     else{ window.open(url,'_blank'); }
   });
   $('#copyPl').addEventListener('click', ()=>{
