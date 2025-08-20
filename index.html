@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Online Media Player</title>
+  <style>
+    :root{
+      --bg:#0f1116; --panel:#151823; --muted:#8e95a5; --text:#e6e8ee; --accent:#4f8cff; --accent-2:#22c55e; --danger:#ef4444;
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background:linear-gradient(180deg,#0f1116,#0b0d12); color:var(--text)}
+    .app{display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px; height:100%}
+    @media (max-width: 960px){.app{grid-template-columns:1fr; grid-auto-rows:minmax(min-content, max-content)}}
+    .card{background:var(--panel); border:1px solid #1f2430; border-radius:var(--radius); box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .sidebar{padding:16px; display:flex; flex-direction:column; gap:16px;}
+    h1{font-size:20px; margin:0 0 4px}
+    .sub{color:var(--muted); font-size:13px}
+    label{font-size:13px; color:var(--muted)}
+    input[type="text"], textarea, select{
+      width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2a3140; outline:none; background:#0f1420; color:var(--text);
+    }
+    input[type="file"]{width:100%}
+    .row{display:grid; grid-template-columns:1fr; gap:10px}
+    .btn{appearance:none; border:none; border-radius:12px; padding:12px 14px; color:white; background:var(--accent); cursor:pointer; font-weight:600}
+    .btn.secondary{background:#2a3140}
+    .btn.green{background:var(--accent-2)}
+    .btn.red{background:var(--danger)}
+    .btn.small{padding:8px 10px; font-size:12px; font-weight:700}
+    .hint{font-size:12px; color:var(--muted)}
+    .stack{display:flex; gap:8px; flex-wrap:wrap}
+    .movies{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; padding:16px}
+    .movie{background:#0f1420; border:1px solid #232a39; border-radius:16px; overflow:hidden; display:flex; flex-direction:column}
+    .movie .thumb{aspect-ratio:16/9; background:linear-gradient(135deg,#1a2030,#0e1320); display:grid; place-items:center; font-weight:700; color:#a7b0c4}
+    .movie .body{padding:12px; display:flex; flex-direction:column; gap:10px}
+    .movie .title{font-weight:700}
+    .tag{font-size:10px; color:#a7b0c4; background:#1b2131; border:1px solid #283044; padding:4px 6px; border-radius:999px}
+    .player{display:flex; flex-direction:column; gap:12px; padding:16px; height:100%}
+    .player .stage{position:relative; background:black; border-radius:16px; overflow:hidden; border:1px solid #232a39; height:min(70vh, 70dvh)}
+    .stage iframe, .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
+    .controls{display:flex; gap:8px; align-items:center}
+    .grow{flex:1}
+    .invisible{display:none !important}
+    .status{font-size:12px; color:#a7b0c4}
+    .searchbar{display:flex; gap:8px}
+    .logo{display:flex; align-items:center; gap:8px}
+    .logo .dot{width:10px; height:10px; border-radius:50%; background:var(--accent)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar / Admin -->
+    <aside class="card sidebar">
+      <div class="logo">
+        <div class="dot"></div>
+        <div>
+          <h1>Online Media Player</h1>
+          <div class="sub">Add movies (Name + OneDrive or HLS link). <strong>ABR (HLS) for smooth buffering.</strong> JSON auto-saves on every edit.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Movie Name</label>
+        <input id="movieName" type="text" placeholder="e.g., Inception (2010)" />
+      </div>
+      <div class="row">
+        <label>OneDrive Link / Embed or HLS/MP4 URL</label>
+        <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed/share URL, or an HLS .m3u8, or a direct .mp4"></textarea>
+        <div class="hint">Tip: For Netflix-smooth playback, use an <span class="kbd">.m3u8</span> HLS link. OneDrive share links will play via embed fallback.</div>
+      </div>
+      <div class="stack">
+        <button class="btn" id="addBtn">Add Movie</button>
+        <button class="btn secondary" id="updateBtn" disabled>Save Changes</button>
+        <button class="btn red" id="cancelEditBtn" disabled>Cancel</button>
+      </div>
+
+      <hr style="border-color:#232a39; opacity:.3">
+
+      <div class="searchbar">
+        <input id="searchInput" type="text" placeholder="Search movies..." />
+        <button class="btn small" id="clearSearchBtn">Clear</button>
+      </div>
+
+      <div class="row">
+        <label>Data Management</label>
+        <div class="stack">
+          <button class="btn small green" id="exportBtn">Download movies.json</button>
+          <label class="btn small secondary" for="importFile" style="cursor:pointer">Import JSON</label>
+          <input id="importFile" type="file" accept="application/json" class="invisible" />
+          <button class="btn small red" id="clearBtn">Clear All</button>
+        </div>
+        <div class="stack" style="align-items:center">
+          <input id="autoDownloadToggle" type="checkbox" checked>
+          <label for="autoDownloadToggle">Auto-download <span class="kbd">movies.json</span> after each edit</label>
+        </div>
+        <div class="status" id="status">Loading…</div>
+      </div>
+    </aside>
+
+    <!-- Main: Library + Player -->
+    <main class="card" style="display:flex; flex-direction:column; min-height:0">
+      <div class="player">
+        <div class="controls">
+          <div class="stack">
+            <button class="btn small" id="fullscreenBtn">Fullscreen Player</button>
+            <button class="btn small secondary" id="stopBtn">Stop</button>
+          </div>
+          <div class="grow"></div>
+          <div class="status" id="nowPlaying">Nothing playing</div>
+        </div>
+        <div class="stage" id="stage">
+          <!-- Smart player: HLS (ABR) via hls.js if .m3u8; else <video> for .mp4; else OneDrive via <iframe> -->
+          <video id="video" class="invisible" controls preload="auto" playsinline controlslist="nodownload noplaybackrate"></video>
+          <iframe id="iframe" class="invisible" allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </div>
+      <div class="movies" id="movies"></div>
+    </main>
+  </div>
+
+  <!-- HLS.js for adaptive streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>
+
+<script>
+(function(){
+  const $ = sel => document.querySelector(sel);
+  const storeKey = 'omp_movies_v1';
+  const state = { movies: [], mode: 'local', editingId: null, dirty:false, hls:null };
+
+  const els = {
