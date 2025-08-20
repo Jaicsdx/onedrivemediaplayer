@@ -11,97 +11,106 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:linear-gradient(180deg,#0f1116,#0b0d12); color:var(--text)}
+    body{margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; background:linear-gradient(180deg,#0f1116,#0b0d12); color:var(--text)}
     .app{display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px; height:100%}
     @media (max-width: 960px){.app{grid-template-columns:1fr; grid-auto-rows:minmax(min-content, max-content)}}
     .card{background:var(--panel); border:1px solid #1f2430; border-radius:var(--radius); box-shadow:0 10px 30px rgba(0,0,0,.35)}
     .sidebar{padding:16px; display:flex; flex-direction:column; gap:16px;}
-    .player{display:flex; flex-direction:column; gap:12px; padding:16px; height:100%}
-    .player .stage{position:relative; background:black; border-radius:16px; overflow:hidden; border:1px solid #232a39; height:min(70vh,70dvh)}
-    .stage iframe, .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
-    .btn{appearance:none; border:none; border-radius:12px; padding:8px 10px; color:white; background:var(--accent); cursor:pointer; font-weight:600; font-size:12px}
+    h1{font-size:20px; margin:0 0 4px}
+    .sub{color:var(--muted); font-size:13px}
+    label{font-size:13px; color:var(--muted)}
+    input[type="text"], textarea, select{
+      width:100%; padding:12px 12px; border-radius:12px; border:1px solid #2a3140; outline:none; background:#0f1420; color:var(--text);
+    }
+    input[type="file"]{width:100%}
+    .row{display:grid; grid-template-columns:1fr; gap:10px}
+    .btn{appearance:none; border:none; border-radius:12px; padding:12px 14px; color:white; background:var(--accent); cursor:pointer; font-weight:600}
+    .btn.secondary{background:#2a3140}
+    .btn.green{background:var(--accent-2)}
+    .btn.red{background:var(--danger)}
+    .btn.small{padding:8px 10px; font-size:12px; font-weight:700}
+    .hint{font-size:12px; color:var(--muted)}
+    .stack{display:flex; gap:8px; flex-wrap:wrap}
     .movies{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; padding:16px}
     .movie{background:#0f1420; border:1px solid #232a39; border-radius:16px; overflow:hidden; display:flex; flex-direction:column}
+    .movie .thumb{aspect-ratio:16/9; background:linear-gradient(135deg,#1a2030,#0e1320); display:grid; place-items:center; font-weight:700; color:#a7b0c4}
     .movie .body{padding:12px; display:flex; flex-direction:column; gap:10px}
+    .movie .title{font-weight:700}
+    .tag{font-size:10px; color:#a7b0c4; background:#1b2131; border:1px solid #283044; padding:4px 6px; border-radius:999px}
+    .player{display:flex; flex-direction:column; gap:12px; padding:16px; height:100%}
+    .player .stage{position:relative; background:black; border-radius:16px; overflow:hidden; border:1px solid #232a39; height:min(70vh, 70dvh)}
+    .stage iframe, .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
+    .controls{display:flex; gap:8px; align-items:center}
+    .grow{flex:1}
+    .invisible{display:none !important}
+    .status{font-size:12px; color:#a7b0c4}
+    .searchbar{display:flex; gap:8px}
+    .logo{display:flex; align-items:center; gap:8px}
+    .logo .dot{width:10px; height:10px; border-radius:50%; background:var(--accent)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
+    details summary{cursor:pointer}
+    code.inline{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
   </style>
 </head>
 <body>
   <div class="app">
+    <!-- Sidebar / Admin -->
     <aside class="card sidebar">
-      <h1>Online Media Player</h1>
-      <p>Add movies (Name + OneDrive/Direct link). Use export/import JSON to save.</p>
-      <input id="movieName" type="text" placeholder="Movie name" />
-      <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed link or direct .mp4 URL"></textarea>
-      <button class="btn" id="addBtn">Add Movie</button>
-      <button class="btn" id="exportBtn">Download movies.json</button>
-      <input id="importFile" type="file" accept="application/json" />
-      <div id="status"></div>
-    </aside>
-
-    <main class="card" style="display:flex; flex-direction:column; min-height:0">
-      <div class="player">
-        <div class="stage" id="stage">
-          <iframe id="iframePlayer" allowfullscreen></iframe>
-          <video id="videoPlayer" controls preload="auto" playsinline></video>
+      <div class="logo">
+        <div class="dot"></div>
+        <div>
+          <h1>Online Media Player</h1>
+          <div class="sub">Add movies (Name + OneDrive link). Links are stored and <strong>movies.json auto-saves</strong> after every change.</div>
         </div>
       </div>
-      <div class="movies" id="movies"></div>
-    </main>
-  </div>
 
-<script>
-(function(){
-  const $ = id => document.getElementById(id);
-  const state = { movies: [], };
-
-  function renderMovies(){
-    $("movies").innerHTML = state.movies.map(m => `
-      <div class="movie">
-        <div class="body">
-          <div><strong>${m.name}</strong></div>
-          <button class="btn" onclick="playMovie('${m.url}','${m.name}')">Play</button>
-        </div>
+      <div class="row">
+        <label>Movie Name</label>
+        <input id="movieName" type="text" placeholder="e.g., Inception (2010)" />
       </div>
-    `).join("");
-  }
+      <div class="row">
+        <label>OneDrive Link or Embed Code</label>
+        <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed link or share URL"></textarea>
+        <div class="hint">Tip: In OneDrive, open the video → <span class="kbd">Embed</span> → copy the iframe or URL. This app auto‑converts most OneDrive links to an embed URL to prevent downloading.</div>
+      </div>
+      <div class="stack">
+        <button class="btn" id="addBtn">Add Movie</button>
+        <button class="btn secondary" id="updateBtn" disabled>Save Changes</button>
+        <button class="btn red" id="cancelEditBtn" disabled>Cancel</button>
+      </div>
 
-  window.playMovie = function(url, name){
-    const iframe = $("iframePlayer");
-    const video = $("videoPlayer");
-    iframe.style.display="none";
-    video.style.display="none";
-    if(url.endsWith(".mp4")){
-      video.src = url;
-      video.style.display="block";
-      video.play().catch(()=>{});
-    } else {
-      iframe.src = url;
-      iframe.style.display="block";
-    }
-  }
+      <hr style="border-color:#232a39; opacity:.3">
 
-  $("addBtn").onclick = () => {
-    const name = $("movieName").value.trim();
-    const url = $("movieLink").value.trim();
-    if(!name || !url) return alert("Enter both name and link");
-    state.movies.push({name,url});
-    renderMovies();
-    $("movieName").value="";
-    $("movieLink").value="";
-  };
+      <div class="searchbar">
+        <input id="searchInput" type="text" placeholder="Search movies..." />
+        <button class="btn small" id="clearSearchBtn">Clear</button>
+      </div>
 
-  $("exportBtn").onclick = () => {
-    const blob = new Blob([JSON.stringify(state.movies,null,2)],{type:"application/json"});
-    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="movies.json"; a.click();
-  };
+      <div class="row">
+        <label>Data & Saving</label>
+        <div class="stack">
+          <button class="btn small green" id="exportBtn">Download movies.json</button>
+          <label class="btn small secondary" for="importFile" style="cursor:pointer">Import JSON</label>
+          <input id="importFile" type="file" accept="application/json" class="invisible" />
+          <button class="btn small red" id="clearBtn">Clear All</button>
+        </div>
+        <div class="stack" style="align-items:center">
+          <input id="autoDownloadToggle" type="checkbox" checked>
+          <label for="autoDownloadToggle">Always auto‑download <code class="inline">movies.json</code> after edits</label>
+        </div>
+        <div class="status" id="status">Loading…</div>
+      </div>
 
-  $("importFile").onchange = async e=>{
-    const file = e.target.files[0]; if(!file) return;
-    const text = await file.text();
-    state.movies = JSON.parse(text);
-    renderMovies();
-  };
-})();
-</script>
-</body>
-</html>
+      <details>
+        <summary><strong>Optional:</strong> GitHub Auto‑Sync settings</summary>
+        <div class="row">
+          <label>Repo (owner/name)</label>
+          <input id="ghRepo" type="text" placeholder="yourname/yourrepo" />
+        </div>
+        <div class="row">
+          <label>Branch</label>
+          <input id="ghBranch" type="text" value="main" />
+        </div>
+        <div class="row">
+          <label>Path</label>
+          <input id="ghPath" type="text
