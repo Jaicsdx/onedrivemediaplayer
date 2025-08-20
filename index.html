@@ -39,7 +39,8 @@
     .tag{font-size:10px; color:#a7b0c4; background:#1b2131; border:1px solid #283044; padding:4px 6px; border-radius:999px}
     .player{display:flex; flex-direction:column; gap:12px; padding:16px; height:100%}
     .player .stage{position:relative; background:black; border-radius:16px; overflow:hidden; border:1px solid #232a39; height:min(70vh, 70dvh)}
-    .stage iframe, .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
+    .stage iframe,
+    .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
     .controls{display:flex; gap:8px; align-items:center}
     .grow{flex:1}
     .invisible{display:none !important}
@@ -48,8 +49,6 @@
     .logo{display:flex; align-items:center; gap:8px}
     .logo .dot{width:10px; height:10px; border-radius:50%; background:var(--accent)}
     .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
-    details summary{cursor:pointer}
-    code.inline{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
   </style>
 </head>
 <body>
@@ -60,7 +59,7 @@
         <div class="dot"></div>
         <div>
           <h1>Online Media Player</h1>
-          <div class="sub">Add movies (Name + OneDrive link). Links are stored and <strong>movies.json auto-saves</strong> after every change.</div>
+          <div class="sub">Add movies (Name + OneDrive link). Links are stored in your browser. Export a JSON file to keep them on GitHub. <strong>Now with smoother buffering.</strong></div>
         </div>
       </div>
 
@@ -71,7 +70,7 @@
       <div class="row">
         <label>OneDrive Link or Embed Code</label>
         <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed link or share URL"></textarea>
-        <div class="hint">Tip: In OneDrive, open the video → <span class="kbd">Embed</span> → copy the iframe or URL. This app auto‑converts most OneDrive links to an embed URL to prevent downloading.</div>
+        <div class="hint">Tip: In OneDrive, open the video → <span class="kbd">Embed</span> → copy the iframe or URL. This app auto‑converts most OneDrive links to an embed URL.</div>
       </div>
       <div class="stack">
         <button class="btn" id="addBtn">Add Movie</button>
@@ -87,7 +86,7 @@
       </div>
 
       <div class="row">
-        <label>Data & Saving</label>
+        <label>Data Management</label>
         <div class="stack">
           <button class="btn small green" id="exportBtn">Download movies.json</button>
           <label class="btn small secondary" for="importFile" style="cursor:pointer">Import JSON</label>
@@ -96,48 +95,9 @@
         </div>
         <div class="stack" style="align-items:center">
           <input id="autoDownloadToggle" type="checkbox" checked>
-          <label for="autoDownloadToggle">Always auto‑download <code class="inline">movies.json</code> after edits</label>
+          <label for="autoDownloadToggle">Auto‑download <span class="kbd">movies.json</span> after every edit</label>
         </div>
         <div class="status" id="status">Loading…</div>
-      </div>
-
-      <details>
-        <summary><strong>Optional:</strong> GitHub Auto‑Sync settings</summary>
-        <div class="row">
-          <label>Repo (owner/name)</label>
-          <input id="ghRepo" type="text" placeholder="yourname/yourrepo" />
-        </div>
-        <div class="row">
-          <label>Branch</label>
-          <input id="ghBranch" type="text" value="main" />
-        </div>
-        <div class="row">
-          <label>Path</label>
-          <input id="ghPath" type="text" value="movies.json" />
-        </div>
-        <div class="row">
-          <label>Personal Access Token (stored locally)</label>
-          <input id="ghToken" type="text" placeholder="ghp_..." />
-        </div>
-        <div class="stack" style="align-items:center">
-          <input id="ghAutoToggle" type="checkbox">
-          <label for="ghAutoToggle">Auto‑sync to GitHub on every change</label>
-        </div>
-        <div class="stack">
-          <button class="btn small" id="ghSave">Save Settings</button>
-          <button class="btn small secondary" id="ghTest">Test & Sync Now</button>
-          <button class="btn small red" id="ghDisable">Disable Sync</button>
-        </div>
-        <div class="hint">Requires a token with <em>repo</em> scope. Token is only kept in your browser’s local storage.</div>
-      </details>
-
-      <div class="hint">
-        <strong>Make it permanent on GitHub Pages:</strong>
-        <ol style="margin:6px 0 0 16px; padding:0; line-height:1.6">
-          <li>Auto‑download happens on each change (file named <span class="kbd">movies.json</span>).</li>
-          <li>Upload that file into your GitHub repo (or enable GitHub Auto‑Sync above).</li>
-          <li>Deploy with GitHub Pages. Visitors will load the shared <span class="kbd">movies.json</span>.</li>
-        </ol>
       </div>
     </aside>
 
@@ -153,8 +113,8 @@
           <div class="status" id="nowPlaying">Nothing playing</div>
         </div>
         <div class="stage" id="stage">
-          <!-- We use either <video> for direct files or <iframe> for OneDrive embeds -->
-          <video id="video" class="invisible" controls preload="auto" playsinline></video>
+          <!-- Smart dual player: prefer <video> (smooth buffering) for direct files; fallback to <iframe> for OneDrive embeds -->
+          <video id="video" class="invisible" controls preload="auto" playsinline controlslist="nodownload noplaybackrate"></video>
           <iframe id="iframe" class="invisible" allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
         </div>
       </div>
@@ -166,8 +126,7 @@
 (function(){
   const $ = sel => document.querySelector(sel);
   const storeKey = 'omp_movies_v1';
-  const ghKey = 'omp_github_cfg_v1';
-  const state = { movies: [], mode: 'local', editingId: null, dirty: false, lastSaveAt: 0 };
+  const state = { movies: [], mode: 'local', editingId: null, dirty:false };
 
   const els = {
     name: $('#movieName'),
@@ -189,50 +148,39 @@
     fullscreenBtn: $('#fullscreenBtn'),
     stopBtn: $('#stopBtn'),
     autoDownloadToggle: $('#autoDownloadToggle'),
-    ghRepo: $('#ghRepo'),
-    ghBranch: $('#ghBranch'),
-    ghPath: $('#ghPath'),
-    ghToken: $('#ghToken'),
-    ghAutoToggle: $('#ghAutoToggle'),
-    ghSave: $('#ghSave'),
-    ghTest: $('#ghTest'),
-    ghDisable: $('#ghDisable'),
   };
 
-  // ---------- OneDrive link normalization ----------
+  // --- Link normalization (OneDrive handling) ---
   function normalizeOneDriveLink(input){
     if(!input) throw new Error('Empty link');
     let link = input.trim();
 
-    // If user pasted an iframe embed, extract src
+    // If user pasted an iframe, extract src
     const m = link.match(/<iframe[^>]*src=["']([^"']+)["'][^>]*><\/iframe>/i) || link.match(/src=["']([^"']+)["']/i);
     if(m && m[1]) link = m[1];
 
-    // If already an embed link, keep it
-    try{ const u = new URL(link); if(u.hostname.includes('onedrive.live.com')){
-      if(u.pathname.includes('/embed')) return link;
-      // Convert share link with resid/authkey → embed
-      const resid = u.searchParams.get('resid');
-      const auth = u.searchParams.get('authkey');
-      if(resid){
-        const embed = new URL('https://onedrive.live.com/embed');
-        embed.searchParams.set('resid', resid);
-        if(auth) embed.searchParams.set('authkey', auth);
-        embed.searchParams.set('em','2');
-        return embed.toString();
+    try{
+      const u = new URL(link);
+      // Convert onedrive share links to embed
+      if(u.hostname.includes('onedrive.live.com')){
+        if(u.pathname.includes('/embed')) return link;
+        const resid = u.searchParams.get('resid');
+        const auth = u.searchParams.get('authkey');
+        if(resid){
+          const embed = new URL('https://onedrive.live.com/embed');
+          embed.searchParams.set('resid', resid);
+          if(auth) embed.searchParams.set('authkey', auth);
+          embed.searchParams.set('em','2');
+          return embed.toString();
+        }
       }
-    }} catch(e){}
+    }catch(_) {}
 
-    // 1drv.ms short links usually redirect. We cannot resolve client‑side.
-    if(/(^|\.)1drv\.ms\b/.test(link)){
-      throw new Error('Short 1drv.ms links cannot be auto‑converted. In OneDrive choose Embed and paste the iframe or the onedrive.live.com embed URL.');
-    }
-
-    // Accept other hosts as-is (could be direct mp4/CDN).
+    // 1drv.ms short links redirect; keep as-is (we’ll use iframe)
     return link;
   }
 
-  // ---------- Storage ----------
+  // --- Persistence helpers ---
   function saveLocal(){
     localStorage.setItem(storeKey, JSON.stringify(state.movies));
   }
@@ -240,9 +188,7 @@
     try{ const raw = localStorage.getItem(storeKey); return raw ? JSON.parse(raw) : []; }
     catch(e){ return []; }
   }
-
   async function loadRemoteJSON(){
-    // Try to fetch movies.json from same folder (works on GitHub Pages)
     try{
       const res = await fetch('movies.json', {cache:'no-store'});
       if(!res.ok) throw new Error('no file');
@@ -250,20 +196,34 @@
       if(!Array.isArray(arr)) throw new Error('bad format');
       state.mode = 'remote';
       return arr;
-    }catch(e){
-      state.mode = 'local';
-      return null;
-    }
+    }catch(e){ state.mode = 'local'; return null; }
   }
 
+  function autoDownloadJSON(){
+    if(!els.autoDownloadToggle.checked) return;
+    const blob = new Blob([JSON.stringify(state.movies, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'movies.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  function markDirtyAndPersist(){
+    state.dirty = true;
+    saveLocal();
+    autoDownloadJSON(); // always save a fresh movies.json locally
+    state.dirty = false;
+    renderStatus('Saved');
+  }
+
+  // --- UI render ---
   function renderStatus(extra=''){
     const base = state.mode === 'remote'
       ? 'Using shared <kbd>movies.json</kbd> from your site.'
-      : 'Using local browser storage. Export/Auto‑download to keep it on GitHub.';
-    els.status.innerHTML = base + (extra ? (' — ' + extra) : '');
+      : 'Using local browser storage.';
+    els.status.innerHTML = base + (extra ? ' — ' + extra : '');
   }
 
-  // ---------- UI rendering ----------
   function renderMovies(){
     const q = els.search.value.trim().toLowerCase();
     const list = state.movies.filter(m => m.name.toLowerCase().includes(q));
@@ -284,33 +244,107 @@
       </div>`).join('') || `<div class="hint" style="padding:12px">No movies yet. Add one on the left.</div>`;
   }
 
+  // --- Smart Player for smoother buffering ---
+  let stallTimer = null, lastProgressTime = 0;
+
+  function isDirectFile(url){
+    return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) ||
+      (!/onedrive\.live\.com/i.test(url) && !/1drv\.ms/i.test(url));
+  }
+
+  function useVideo(url){
+    els.iframe.classList.add('invisible');
+    els.iframe.src = 'about:blank';
+    const v = els.video;
+    v.classList.remove('invisible');
+
+    // smooth buffering tips
+    v.preload = 'auto';
+    v.autoplay = true;
+    v.muted = true; // allow autoplay reliably
+    v.src = url;
+
+    // stall recovery
+    clearTimeout(stallTimer);
+    lastProgressTime = performance.now();
+
+    v.addEventListener('waiting', onStall, {once:false});
+    v.addEventListener('stalled', onStall, {once:false});
+    v.addEventListener('progress', onProgress, {once:false});
+    v.addEventListener('error', onError, {once:false});
+
+    v.play().catch(()=>{ /* autoplay blocked */ });
+  }
+
+  function onProgress(){
+    lastProgressTime = performance.now();
+  }
+  function onStall(){
+    const v = els.video;
+    // attempt micro-seek to kick buffering
+    if (!v.seeking) {
+      const t = Math.max(0, v.currentTime - 0.01);
+      v.currentTime = t;
+    }
+    // if stall persists > 6s, reload the video element
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(()=>{
+      const src = v.currentSrc || v.src;
+      v.pause();
+      v.load();
+      if(src) v.src = src;
+      v.play().catch(()=>{});
+    }, 6000);
+  }
+  function onError(){
+    // fallback to iframe if video fails
+    const src = els.video.src;
+    useIframe(src);
+  }
+
+  function useIframe(url){
+    clearTimeout(stallTimer);
+    const v = els.video;
+    // cleanup listeners
+    v.pause(); v.removeAttribute('src'); v.load();
+    v.classList.add('invisible');
+
+    els.iframe.classList.remove('invisible');
+    els.iframe.src = url;
+
+    // iframe "keep-alive": reload if no message for long time (best-effort)
+    let iframePing = Date.now();
+    const pingTimer = setInterval(()=>{
+      if(document.hidden) return; // avoid reloads when tab hidden
+      const idle = Date.now() - iframePing;
+      if(idle > 30000){ // 30s with no activity → refresh
+        const src = els.iframe.src;
+        els.iframe.src = 'about:blank';
+        requestAnimationFrame(()=> els.iframe.src = src);
+        iframePing = Date.now();
+      }
+    }, 10000);
+    // stop ping when iframe is hidden again (when switching back to video)
+    const obs = new MutationObserver(()=>{
+      if(els.iframe.classList.contains('invisible')){
+        clearInterval(pingTimer); obs.disconnect();
+      }
+    });
+    obs.observe(els.iframe, {attributes:true, attributeFilter:['class']});
+  }
+
   function playMovie(m){
     if(!m) return;
     const url = m.url;
-    const isDirect = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) || (!/onedrive\.live\.com\/embed/i.test(url) && !/onedrive\.live\.com/i.test(url) && !/1drv\.ms/i.test(url));
-    // prefer <video> for direct files, else <iframe> embed
-    if(isDirect){
-      els.iframe.classList.add('invisible');
-      els.iframe.src = 'about:blank';
-      els.video.classList.remove('invisible');
-      els.video.src = url;
-      try {
-        els.video.muted = true; // allow autoplay reliably
-        els.video.play().catch(()=>{});
-      } catch(e){}
-    }else{
-      els.video.pause?.();
-      els.video.src = '';
-      els.video.classList.add('invisible');
-      els.iframe.classList.remove('invisible');
-      els.iframe.src = url;
-    }
+    if(isDirectFile(url)){ useVideo(url); }
+    else{ useIframe(url); }
     els.nowPlaying.textContent = 'Now Playing: ' + m.name;
   }
 
   function stopPlayback(){
+    clearTimeout(stallTimer);
     els.video.pause?.();
-    els.video.src = '';
+    els.video.removeAttribute('src'); els.video.load();
     els.video.classList.add('invisible');
     els.iframe.src = 'about:blank';
     els.iframe.classList.add('invisible');
@@ -339,97 +373,7 @@
     return s.replace(/[&<>"]+/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   }
 
-  // ---------- Auto-save: download + optional GitHub sync ----------
-  let persistTimer = null;
-  function markDirty(){
-    state.dirty = true;
-    // debounce persist to avoid spamming on quick edits
-    clearTimeout(persistTimer);
-    persistTimer = setTimeout(autoPersist, 700);
-  }
-
-  function autoPersist(){
-    if(!state.dirty) return;
-    state.dirty = false;
-    saveLocal();
-    if(els.autoDownloadToggle.checked){
-      downloadMoviesJson(); // always save a fresh movies.json
-    }
-    if(loadGhCfg().auto){
-      githubSync().catch(err => renderStatus('GitHub sync failed (see console)'));
-    }
-    state.lastSaveAt = Date.now();
-    renderStatus('Saved ' + new Date(state.lastSaveAt).toLocaleTimeString());
-  }
-
-  function downloadMoviesJson(){
-    const blob = new Blob([JSON.stringify(state.movies, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'movies.json'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  }
-
-  // ---------- GitHub Sync (optional) ----------
-  function loadGhCfg(){
-    try{
-      const raw = localStorage.getItem(ghKey);
-      return raw ? JSON.parse(raw) : { repo:'', branch:'main', path:'movies.json', token:'', auto:false };
-    }catch(e){ return { repo:'', branch:'main', path:'movies.json', token:'', auto:false }; }
-  }
-  function saveGhCfg(cfg){
-    localStorage.setItem(ghKey, JSON.stringify(cfg));
-  }
-  function applyGhCfgToUI(){
-    const cfg = loadGhCfg();
-    els.ghRepo.value = cfg.repo || '';
-    els.ghBranch.value = cfg.branch || 'main';
-    els.ghPath.value = cfg.path || 'movies.json';
-    els.ghToken.value = cfg.token || '';
-    els.ghAutoToggle.checked = !!cfg.auto;
-  }
-
-  async function githubGetFile(cfg){
-    const url = `https://api.github.com/repos/${encodeURIComponent(cfg.repo)}/contents/${encodeURIComponent(cfg.path)}?ref=${encodeURIComponent(cfg.branch)}`;
-    const res = await fetch(url, { headers: ghHeaders(cfg) });
-    if(res.status === 404) return { sha: null };
-    if(!res.ok) throw new Error('GET ' + res.status + ': ' + await res.text());
-    const json = await res.json();
-    return { sha: json.sha };
-  }
-  function ghHeaders(cfg){
-    const h = { 'Accept': 'application/vnd.github+json' };
-    if(cfg.token) h['Authorization'] = `token ${cfg.token}`;
-    return h;
-  }
-  function toBase64(str){
-    // base64 for unicode
-    return btoa(unescape(encodeURIComponent(str)));
-  }
-  async function githubPutFile(cfg, content, sha){
-    const url = `https://api.github.com/repos/${encodeURIComponent(cfg.repo)}/contents/${encodeURIComponent(cfg.path)}`;
-    const body = {
-      message: 'Update movies.json via Online Media Player',
-      content: toBase64(content),
-      branch: cfg.branch || 'main',
-    };
-    if(sha) body.sha = sha;
-    const res = await fetch(url, { method:'PUT', headers: ghHeaders(cfg), body: JSON.stringify(body) });
-    if(!res.ok) throw new Error('PUT ' + res.status + ': ' + await res.text());
-    return res.json();
-  }
-  async function githubSync(){
-    const cfg = loadGhCfg();
-    if(!cfg.repo || !cfg.path || !cfg.branch || !cfg.token){
-      throw new Error('Missing GitHub settings');
-    }
-    const current = await githubGetFile(cfg);
-    const content = JSON.stringify(state.movies, null, 2);
-    await githubPutFile(cfg, content, current.sha);
-    renderStatus('GitHub sync OK');
-  }
-
-  // ---------- Event handlers ----------
+  // --- Event handlers (with autosave of movies.json) ---
   els.addBtn.addEventListener('click', () => {
     const name = els.name.value.trim();
     const raw = els.link.value.trim();
@@ -442,7 +386,7 @@
     state.movies.unshift(movie);
     renderMovies();
     clearEditor();
-    markDirty();
+    markDirtyAndPersist();
   });
 
   els.updateBtn.addEventListener('click', () => {
@@ -458,7 +402,7 @@
     if(i>=0){ state.movies[i] = { ...state.movies[i], name, url: link }; }
     renderMovies();
     clearEditor();
-    markDirty();
+    markDirtyAndPersist();
   });
 
   els.cancelEditBtn.addEventListener('click', clearEditor);
@@ -480,13 +424,13 @@
         if(i>=0) state.movies.splice(i,1);
         renderMovies();
         if(els.nowPlaying.textContent.includes(m.name)) stopPlayback();
-        markDirty();
+        markDirtyAndPersist();
       }
     }
   });
 
   els.exportBtn.addEventListener('click', () => {
-    downloadMoviesJson();
+    autoDownloadJSON();
   });
 
   els.importFile.addEventListener('change', async () => {
@@ -495,10 +439,9 @@
       const text = await file.text();
       const arr = JSON.parse(text);
       if(!Array.isArray(arr)) throw new Error('Invalid JSON: expected an array');
-      // Basic sanitize
       state.movies = arr.map(x => ({ id: x.id || crypto.randomUUID(), name: String(x.name||'Untitled'), url: String(x.url||''), addedAt: x.addedAt||Date.now() }));
       renderMovies();
-      markDirty();
+      markDirtyAndPersist();
       alert('Imported successfully!');
     }catch(err){ alert('Import failed: ' + err.message); }
     finally{ els.importFile.value = ''; }
@@ -509,7 +452,7 @@
       state.movies = [];
       renderMovies();
       stopPlayback();
-      markDirty();
+      markDirtyAndPersist();
     }
   });
 
@@ -524,55 +467,23 @@
 
   els.stopBtn.addEventListener('click', stopPlayback);
 
-  // GitHub settings handlers
-  els.ghSave.addEventListener('click', () => {
-    const cfg = {
-      repo: els.ghRepo.value.trim(),
-      branch: els.ghBranch.value.trim() || 'main',
-      path: els.ghPath.value.trim() || 'movies.json',
-      token: els.ghToken.value.trim(),
-      auto: !!els.ghAutoToggle.checked,
-    };
-    saveGhCfg(cfg);
-    renderStatus('GitHub settings saved');
-  });
-  els.ghTest.addEventListener('click', async () => {
-    try{
-      await githubSync();
-      alert('GitHub sync successful!');
-    }catch(e){
-      console.error(e);
-      alert('GitHub sync failed: ' + e.message);
-    }
-  });
-  els.ghDisable.addEventListener('click', () => {
-    saveGhCfg({ repo:'', branch:'main', path:'movies.json', token:'', auto:false });
-    applyGhCfgToUI();
-    renderStatus('GitHub sync disabled');
-  });
-
-  // Warn user and force-save on unload if dirty
+  // Persist on unload if unsaved
   window.addEventListener('beforeunload', (e) => {
     if(state.dirty){
-      // do a last-second auto-download
-      downloadMoviesJson();
+      autoDownloadJSON();
       e.preventDefault();
       e.returnValue = '';
     }
   });
 
-  // ---------- Init ----------
+  // --- Init ---
   (async function init(){
-    // Load GitHub cfg to UI
-    applyGhCfgToUI();
-
-    // Prefer remote movies.json if present, else local
     const remote = await loadRemoteJSON();
-    if(remote){ state.movies = remote; }
-    else{ state.movies = loadLocal(); }
-
+    state.movies = remote || loadLocal();
     renderStatus();
     renderMovies();
+    // Autoplay policy: unlock audio on first click anywhere
+    window.addEventListener('click', () => { els.video.muted = false; }, {once:true});
   })();
 })();
 </script>
