@@ -41,7 +41,7 @@
     .player{display:flex; flex-direction:column; gap:12px; padding:16px; height:100%}
     .player .stage{position:relative; background:black; border-radius:16px; overflow:hidden; border:1px solid #232a39; height:min(70vh, 70dvh)}
     .stage iframe, .stage video{position:absolute; inset:0; width:100%; height:100%; border:0; background:black}
-    .controls{display:flex; gap:8px; align-items:center}
+    .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
     .grow{flex:1}
     .invisible{display:none !important}
     .status{font-size:12px; color:#a7b0c4}
@@ -49,6 +49,18 @@
     .logo{display:flex; align-items:center; gap:8px}
     .logo .dot{width:10px; height:10px; border-radius:50%; background:var(--accent)}
     .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; background:#0b0e15; border:1px solid #25304a; padding:2px 6px; border-radius:6px; color:#c5cbe3}
+
+    /* Buffering overlay */
+    .overlay{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.35); backdrop-filter:saturate(1.2) blur(2px); color:#e6e8ee; gap:12px; z-index:2
+    }
+    .spinner{
+      width:18px; height:18px; border-radius:50%; border:3px solid rgba(255,255,255,.25); border-top-color:#fff; animation:spin 1s linear infinite
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .overlay .msg{font-size:13px}
+    .badge{font-size:11px; padding:2px 6px; border:1px solid #2a3140; border-radius:999px; color:#c5cbe3; background:#0b0e15}
   </style>
 </head>
 <body>
@@ -59,7 +71,7 @@
         <div class="dot"></div>
         <div>
           <h1>Online Media Player</h1>
-          <div class="sub">Add movies (Name + OneDrive or HLS link). <strong>ABR (HLS) for smooth buffering.</strong> JSON auto-saves on every edit.</div>
+          <div class="sub">Add movies (Name + OneDrive link). Normal embed playback with stability helpers. JSON auto-saves.</div>
         </div>
       </div>
 
@@ -68,9 +80,9 @@
         <input id="movieName" type="text" placeholder="e.g., Inception (2010)" />
       </div>
       <div class="row">
-        <label>OneDrive Link / Embed or HLS/MP4 URL</label>
-        <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed/share URL, or an HLS .m3u8, or a direct .mp4"></textarea>
-        <div class="hint">Tip: For Netflix-smooth playback, use an <span class="kbd">.m3u8</span> HLS link. OneDrive share links will play via embed fallback.</div>
+        <label>OneDrive Link or Embed Code</label>
+        <textarea id="movieLink" rows="3" placeholder="Paste OneDrive embed link or share URL"></textarea>
+        <div class="hint">Tip: Use the full <span class="kbd">onedrive.live.com/embed?...&em=2</span> link (Embed → copy). Avoid short <span class="kbd">1drv.ms</span> if possible.</div>
       </div>
       <div class="stack">
         <button class="btn" id="addBtn">Add Movie</button>
@@ -86,7 +98,7 @@
       </div>
 
       <div class="row">
-        <label>Data Management</label>
+        <label>Data & Saving</label>
         <div class="stack">
           <button class="btn small green" id="exportBtn">Download movies.json</button>
           <label class="btn small secondary" for="importFile" style="cursor:pointer">Import JSON</label>
@@ -107,29 +119,37 @@
         <div class="controls">
           <div class="stack">
             <button class="btn small" id="fullscreenBtn">Fullscreen Player</button>
+            <button class="btn small secondary" id="reloadBtn">Reload Stream</button>
             <button class="btn small secondary" id="stopBtn">Stop</button>
           </div>
           <div class="grow"></div>
+          <div class="stack" style="align-items:center">
+            <span id="netBadge" class="badge">Network: checking…</span>
+            <label class="badge" title="Gently refresh the embed if connection is weak">
+              <input id="keepAliveToggle" type="checkbox" checked> Keep Stream Alive
+            </label>
+          </div>
           <div class="status" id="nowPlaying">Nothing playing</div>
         </div>
         <div class="stage" id="stage">
-          <!-- Smart player: HLS (ABR) via hls.js if .m3u8; else <video> for .mp4; else OneDrive via <iframe> -->
+          <div id="bufferOverlay" class="overlay invisible">
+            <div class="spinner"></div>
+            <div class="msg" id="bufferMsg">Buffering… trying to keep the stream alive</div>
+          </div>
+          <!-- Prefer OneDrive <iframe>; use <video> only for direct .mp4/.webm/.ogg links -->
           <video id="video" class="invisible" controls preload="auto" playsinline controlslist="nodownload noplaybackrate"></video>
-          <iframe id="iframe" class="invisible" allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
+          <iframe id="iframe" class="invisible" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="no-referrer"></iframe>
         </div>
       </div>
       <div class="movies" id="movies"></div>
     </main>
   </div>
 
-  <!-- HLS.js for adaptive streaming -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.14/dist/hls.min.js"></script>
-
 <script>
 (function(){
   const $ = sel => document.querySelector(sel);
   const storeKey = 'omp_movies_v1';
-  const state = { movies: [], mode: 'local', editingId: null, dirty:false, hls:null };
+  const state = { movies: [], mode: 'local', editingId: null, dirty:false, playingKind: null };
 
   const els = {
     name: $('#movieName'),
@@ -149,8 +169,13 @@
     stage: $('#stage'),
     nowPlaying: $('#nowPlaying'),
     fullscreenBtn: $('#fullscreenBtn'),
+    reloadBtn: $('#reloadBtn'),
     stopBtn: $('#stopBtn'),
     autoDownloadToggle: $('#autoDownloadToggle'),
+    keepAliveToggle: $('#keepAliveToggle'),
+    bufferOverlay: $('#bufferOverlay'),
+    bufferMsg: $('#bufferMsg'),
+    netBadge: $('#netBadge'),
   };
 
   // ---------- OneDrive link normalization ----------
@@ -179,11 +204,11 @@
       }
     }catch(e){}
 
-    // Accept other hosts/HLS/MP4 as-is
+    // Accept other hosts as-is (could be direct mp4/CDN)
     return link;
   }
 
-  // ---------- Persistence ----------
+  // ---------- Storage ----------
   function saveLocal(){ localStorage.setItem(storeKey, JSON.stringify(state.movies)); }
   function loadLocal(){ try{ const raw = localStorage.getItem(storeKey); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
   async function loadRemoteJSON(){
@@ -195,6 +220,7 @@
       state.mode = 'remote'; return arr;
     }catch(e){ state.mode = 'local'; return null; }
   }
+
   function autoDownloadJSON(){
     if(!els.autoDownloadToggle.checked) return;
     const blob = new Blob([JSON.stringify(state.movies, null, 2)], {type:'application/json'});
@@ -237,86 +263,31 @@
     `).join('') || `<div class="hint" style="padding:12px">No movies yet. Add one on the left.</div>`;
   }
 
-  // ---------- Playback (Netflix-style smoothness) ----------
-  const isHls = url => /\.m3u8(\?.*)?$/i.test(url);
+  // ---------- Playback ----------
   const isDirect = url => /\.(mp4|webm|ogg)(\?.*)?$/i.test(url) ||
-                          (!/onedrive\.live\.com/i.test(url) && !/1drv\.ms/i.test(url) && !isHls(url));
-  let stallTimer = null;
+                          (!/onedrive\.live\.com/i.test(url) && !/1drv\.ms/i.test(url));
 
-  function destroyHls(){
-    if(state.hls){ try{ state.hls.destroy(); }catch(_){} state.hls=null; }
-  }
+  let stallTimer = null, keepAliveTimer = null;
+
+  function showOverlay(msg){ els.bufferMsg.textContent = msg || 'Buffering…'; els.bufferOverlay.classList.remove('invisible'); }
+  function hideOverlay(){ els.bufferOverlay.classList.add('invisible'); }
 
   function playMovie(m){
     if(!m) return;
-    const url = m.url;
-
+    clearTimers();
     // Reset players
-    clearTimeout(stallTimer);
-    destroyHls();
-    els.video.pause?.();
-    els.video.removeAttribute('src'); els.video.load();
-    els.video.classList.add('invisible');
+    els.video.pause?.(); els.video.removeAttribute('src'); els.video.load(); els.video.classList.add('invisible');
     els.iframe.src = 'about:blank'; els.iframe.classList.add('invisible');
 
-    if(isHls(url)){
-      useHls(url);
-      els.nowPlaying.textContent = 'Now Playing (HLS ABR): ' + m.name;
-    } else if(isDirect(url)){
+    const url = m.url;
+    if(isDirect(url)){
+      state.playingKind = 'video';
       useVideo(url);
       els.nowPlaying.textContent = 'Now Playing: ' + m.name;
-    } else {
+    }else{
+      state.playingKind = 'iframe';
       useIframe(url);
       els.nowPlaying.textContent = 'Now Playing (OneDrive Embed): ' + m.name;
-    }
-  }
-
-  function useHls(url){
-    const v = els.video;
-    v.classList.remove('invisible');
-    v.preload = 'auto';
-    v.autoplay = true;
-    v.muted = true; // autoplay reliably; we unmute on first click
-    // Native HLS on Safari/iOS
-    if(v.canPlayType('application/vnd.apple.mpegURL')){
-      v.src = url;
-      attachStallHandlers(v);
-      v.play().catch(()=>{});
-      return;
-    }
-    if(window.Hls && window.Hls.isSupported()){
-      const hls = new Hls({
-        // Balanced VOD config for smoothness
-        startLevel: -1,                 // let ABR choose
-        capLevelToPlayerSize: true,
-        maxBufferLength: 30,
-        backBufferLength: 60,
-        maxMaxBufferLength: 60,
-        lowLatencyMode: false,
-        enableWorker: true,
-        fragLoadingTimeOut: 20000,
-        manifestLoadingTimeOut: 20000
-      });
-      state.hls = hls;
-      hls.attachMedia(v);
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if(!data || !data.fatal) return;
-        if(data.type === Hls.ErrorTypes.NETWORK_ERROR){
-          hls.startLoad();
-        }else if(data.type === Hls.ErrorTypes.MEDIA_ERROR){
-          hls.recoverMediaError();
-        }else{
-          // unrecoverable: fallback to iframe
-          destroyHls();
-          useIframe(url);
-        }
-      });
-      v.play().catch(()=>{});
-      attachStallHandlers(v);
-    } else {
-      // No hls.js support: naive fallback
-      useIframe(url);
     }
   }
 
@@ -325,69 +296,109 @@
     v.classList.remove('invisible');
     v.preload = 'auto';
     v.autoplay = true;
-    v.muted = true;
+    v.muted = true; // allow autoplay reliably
     v.src = url;
     v.play().catch(()=>{});
     attachStallHandlers(v);
   }
 
   function attachStallHandlers(v){
-    const nudge = () => {
-      try {
-        if (!v.seeking) v.currentTime = Math.max(0, v.currentTime - 0.01);
-      } catch(_) {}
-    };
+    const nudge = () => { try{ if(!v.seeking) v.currentTime = Math.max(0, v.currentTime - 0.01); }catch(_){} };
     const reload = () => {
-      try {
-        const src = state.hls ? null : (v.currentSrc || v.src);
-        if(state.hls){ state.hls.startLoad(); }
-        else{
-          v.pause(); v.load(); if(src) v.src = src; v.play().catch(()=>{});
-        }
-      } catch(_) {}
+      try{
+        const src = v.currentSrc || v.src;
+        v.pause(); v.load(); if(src) v.src = src;
+        v.play().catch(()=>{});
+      }catch(_){}
     };
     const onStall = () => {
+      showOverlay('Buffering… trying to recover');
       nudge();
       clearTimeout(stallTimer);
-      stallTimer = setTimeout(reload, 6000);
+      stallTimer = setTimeout(()=>{ reload(); hideOverlay(); }, 6000);
     };
     v.addEventListener('waiting', onStall);
     v.addEventListener('stalled', onStall);
-    v.addEventListener('progress', () => { clearTimeout(stallTimer); });
-    v.addEventListener('error', () => { clearTimeout(stallTimer); reload(); });
+    v.addEventListener('progress', () => { hideOverlay(); clearTimeout(stallTimer); });
+    v.addEventListener('error', () => { showOverlay('Playback error — reloading'); setTimeout(()=>{ reload(); hideOverlay(); }, 1000); });
   }
 
   function useIframe(url){
-    const v = els.video;
-    v.pause(); v.removeAttribute('src'); v.load(); v.classList.add('invisible');
     els.iframe.classList.remove('invisible');
+    // Allow PiP/fullscreen/autoplay already set in attributes
     els.iframe.src = url;
 
-    // Best-effort keep-alive refresh if idle too long
-    let pingAt = Date.now();
-    const timer = setInterval(()=>{
+    // Keep-alive watchdog (gentle): if connection is weak, soft-reload occasionally
+    scheduleKeepAlive();
+  }
+
+  function scheduleKeepAlive(){
+    clearInterval(keepAliveTimer);
+    if(!els.keepAliveToggle.checked) return;
+
+    keepAliveTimer = setInterval(()=>{
       if(document.hidden) return;
-      const idle = Date.now() - pingAt;
-      if(idle > 30000){
+      const c = navigator.connection || {};
+      const weak = (c.effectiveType && /(^|-)2g|3g/i.test(c.effectiveType)) || (typeof c.downlink === 'number' && c.downlink < 1.5);
+      const online = navigator.onLine !== false;
+
+      if(online && weak && state.playingKind === 'iframe'){
+        // show a brief overlay and do a soft refresh to re-request the next chunk
+        showOverlay('Network is slow — refreshing stream');
         const src = els.iframe.src;
         els.iframe.src = 'about:blank';
-        requestAnimationFrame(()=> els.iframe.src = src);
-        pingAt = Date.now();
+        requestAnimationFrame(()=>{
+          els.iframe.src = src;
+          setTimeout(hideOverlay, 1500);
+        });
       }
-    }, 10000);
-    const obs = new MutationObserver(()=>{
-      if(els.iframe.classList.contains('invisible')){ clearInterval(timer); obs.disconnect(); }
-    });
-    obs.observe(els.iframe, {attributes:true, attributeFilter:['class']});
+    }, 45000); // every 45s on weak links
+  }
+
+  function clearTimers(){
+    clearTimeout(stallTimer);
+    clearInterval(keepAliveTimer);
   }
 
   function stopPlayback(){
-    clearTimeout(stallTimer);
-    destroyHls();
+    clearTimers();
     els.video.pause?.(); els.video.removeAttribute('src'); els.video.load(); els.video.classList.add('invisible');
     els.iframe.src = 'about:blank'; els.iframe.classList.add('invisible');
+    hideOverlay();
+    state.playingKind = null;
     els.nowPlaying.textContent = 'Nothing playing';
   }
+
+  // ---------- Network awareness ----------
+  function updateNetBadge(){
+    const c = navigator.connection || {};
+    const type = c.effectiveType || 'unknown';
+    const dl = typeof c.downlink === 'number' ? `${c.downlink.toFixed(1)}Mb/s` : '';
+    const online = navigator.onLine !== false;
+    els.netBadge.textContent = `Network: ${online ? type : 'offline'} ${dl ? '· ' + dl : ''}`;
+    els.netBadge.style.background = online ? '#0b0e15' : '#311';
+    els.netBadge.style.borderColor = online ? '#2a3140' : '#552';
+  }
+
+  window.addEventListener('online', () => {
+    updateNetBadge();
+    if(state.playingKind === 'iframe'){
+      showOverlay('Back online — resuming stream');
+      const src = els.iframe.src;
+      els.iframe.src = 'about:blank';
+      requestAnimationFrame(()=>{ els.iframe.src = src; setTimeout(hideOverlay, 1200); });
+    }else if(state.playingKind === 'video'){
+      // try to resume
+      const v = els.video; v.play?.().catch(()=>{});
+    }
+  });
+  window.addEventListener('offline', () => { updateNetBadge(); showOverlay('You are offline'); });
+
+  (navigator.connection || {}).addEventListener?.('change', () => {
+    updateNetBadge();
+    // Re-schedule keepalive with new conditions
+    if(state.playingKind === 'iframe'){ scheduleKeepAlive(); }
+  });
 
   // ---------- CRUD ----------
   function startEdit(m){
@@ -411,7 +422,7 @@
   els.addBtn.addEventListener('click', () => {
     const name = els.name.value.trim();
     const raw = els.link.value.trim();
-    if(!name || !raw){ alert('Please enter a movie name and a link.'); return; }
+    if(!name || !raw){ alert('Please enter a movie name and a OneDrive link.'); return; }
     let link;
     try{ link = normalizeOneDriveLink(raw); } catch(e){ alert(e.message); return; }
 
@@ -426,7 +437,7 @@
     if(!state.editingId) return;
     const name = els.name.value.trim();
     const raw = els.link.value.trim();
-    if(!name || !raw){ alert('Please enter a movie name and a link.'); return; }
+    if(!name || !raw){ alert('Please enter a movie name and a OneDrive link.'); return; }
     let link;
     try{ link = normalizeOneDriveLink(raw); } catch(e){ alert(e.message); return; }
 
@@ -483,8 +494,8 @@
     }
   });
 
-  els.search.addEventListener('input', renderMovies);
   els.clearSearch.addEventListener('click', () => { els.search.value=''; renderMovies(); });
+  els.search.addEventListener('input', renderMovies);
 
   els.fullscreenBtn.addEventListener('click', () => {
     const el = els.stage;
@@ -492,10 +503,28 @@
     else{ el.requestFullscreen?.(); }
   });
 
-  els.stopBtn.addEventListener('click', stopPlayback);
+  els.reloadBtn.addEventListener('click', () => {
+    if(state.playingKind === 'iframe'){
+      showOverlay('Refreshing stream…');
+      const src = els.iframe.src;
+      els.iframe.src = 'about:blank';
+      requestAnimationFrame(()=>{ els.iframe.src = src; setTimeout(hideOverlay, 1200); });
+    }else if(state.playingKind === 'video'){
+      const v = els.video;
+      const t = Math.max(0, v.currentTime - 0.01);
+      v.currentTime = t;
+      v.play().catch(()=>{});
+    }
+  });
 
-  // Unmute video audio on first user gesture (after autoplay)
-  window.addEventListener('click', () => { els.video.muted = false; }, {once:true});
+  els.keepAliveToggle.addEventListener('change', () => {
+    if(state.playingKind === 'iframe'){
+      if(els.keepAliveToggle.checked) scheduleKeepAlive();
+      else clearInterval(keepAliveTimer);
+    }
+  });
+
+  els.stopBtn.addEventListener('click', stopPlayback);
 
   // Persist on unload if any pending change
   window.addEventListener('beforeunload', (e) => {
@@ -511,6 +540,7 @@
     state.movies = remote || loadLocal();
     renderStatus();
     renderMovies();
+    updateNetBadge();
   })();
 })();
 </script>
